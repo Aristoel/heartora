@@ -6,7 +6,9 @@ import "./styles.css";
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error("Heartora could not find its root element.");
+  throw new Error(
+    "Heartora failed to start: the root element was not found in index.html."
+  );
 }
 
 createRoot(rootElement).render(
@@ -14,4 +16,3 @@ createRoot(rootElement).render(
     <App />
   </StrictMode>
 );
-
