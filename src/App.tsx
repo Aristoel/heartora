@@ -95,7 +95,6 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "nowrap",
   },
     
-  },
   brand: {
     display: "inline-flex",
     alignItems: "center",
@@ -1521,31 +1520,24 @@ export default function App() {
           {renderBrand()}
 
           <button
-            type="button"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            style={{
-  ...styles.secondaryButton,
-  padding: 10,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-}}
-              
-    
-          >
-            {menuOpen ? <X size={19} /> : <Menu size={19} />}
-          </button>
+  type="button"
+  className="heartora-menu-button"
+  aria-label={menuOpen ? "Close menu" : "Open menu"}
+  aria-expanded={menuOpen}
+  onClick={() => setMenuOpen((open) => !open)}
+>
+  {menuOpen ? <X size={19} /> : <Menu size={19} />}
+</button>
+           
 
-          <nav
-            aria-label="Main navigation"
-            style={{
-              ...styles.nav,
-              display: menuOpen ? "flex" : undefined,
-            }}
-          >
+    <nav
+        aria-label="Main navigation"
+        style={{
+          ...styles.nav,
+          display: menuOpen ? "flex" : undefined,
+        }}
+      >
+    
             <button
               type="button"
               style={styles.navButton}
