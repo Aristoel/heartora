@@ -28,7 +28,8 @@ type Page =
   | "safety"
   | "signup"
   | "signin"
-  | "forgot";
+  | "forgot"
+  | "premium";
 
 type Notice = {
   type: "success" | "error" | "info";
@@ -1511,6 +1512,145 @@ navigate("discover");
       </main>
     );
   }
+  function renderPremium() {
+  const plans = [
+    {
+      name: "Monthly",
+      price: "$14.99",
+      period: "/month",
+      description: "Try all the benefits of Heartora Premium.",
+      features: [
+        "Unlimited likes",
+        "See who likes you",
+        "Advanced matching filters",
+        "Enhanced worldwide discovery",
+        "Rewind profiles",
+        "Premium member badge",
+        "Ad-free browsing",
+      ],
+      featured: false,
+    },
+    {
+      name: "3 Months",
+      price: "$35.97",
+      period: "/3 months",
+      description: "Enjoy Premium with a little extra flexibility.",
+      features: [
+        "Everything in Monthly",
+        "Equivalent to $11.99/month",
+        "Explore connections worldwide",
+        "Premium member badge",
+      ],
+      featured: true,
+    },
+    {
+      name: "Annual",
+      price: "$95.88",
+      period: "/year",
+      description: "Our best planned price for long-term members.",
+      features: [
+        "Everything in Premium",
+        "Equivalent to $7.99/month",
+        "12 months of planned access",
+        "Best monthly value",
+      ],
+      featured: false,
+    },
+  ];
+
+  return (
+    <main style={styles.main}>
+      <section style={styles.panel}>
+        <div style={styles.badge}>
+          <Sparkles size={15} />
+          HEARTORA PREMIUM
+        </div>
+
+        <h1 style={{ ...styles.heading, textAlign: "center" }}>
+          Make meaningful connections
+        </h1>
+
+        <p style={{ ...styles.muted, textAlign: "center" }}>
+          Discover more possibilities with planned Premium features.
+          Join Heartora for free, or explore the membership options below.
+        </p>
+
+        <div className="heartora-premium-grid">
+          {plans.map((plan) => (
+            <article
+              key={plan.name}
+              className={
+                plan.featured
+                  ? "heartora-premium-card featured"
+                  : "heartora-premium-card"
+              }
+            >
+              {plan.featured && (
+                <div className="heartora-popular-badge">
+                  POPULAR CHOICE
+                </div>
+              )}
+
+              <h2>{plan.name}</h2>
+
+              <div className="heartora-premium-price">
+                {plan.price}
+              </div>
+
+              <p className="heartora-premium-period">
+                {plan.period}
+              </p>
+
+              <p className="heartora-premium-description">
+                {plan.description}
+              </p>
+
+              <ul className="heartora-premium-features">
+                {plan.features.map((feature) => (
+                  <li key={feature}>
+                    <span aria-hidden="true">✓</span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                type="button"
+                className="heartora-premium-button"
+                onClick={() =>
+                  window.alert(
+                    "Heartora Premium checkout is not available yet. " +
+                    "No payment has been taken. We'll enable subscriptions " +
+                    "after secure payment processing is connected."
+                  )
+                }
+              >
+                Explore this plan
+                <ChevronRight size={16} />
+              </button>
+            </article>
+          ))}
+        </div>
+
+        <p className="heartora-premium-disclaimer">
+          Premium features and pricing are a preview. Paid subscriptions
+          are not yet available, and no payment will be taken.
+        </p>
+
+        <div style={{ textAlign: "center", marginTop: 24 }}>
+          <button
+            type="button"
+            onClick={() => navigate("discover")}
+            style={styles.secondaryButton}
+          >
+            <ArrowLeft size={16} />
+            Back to Discover
+          </button>
+        </div>
+      </section>
+    </main>
+  );
+    }
 
   return (
     <div style={styles.app}>
@@ -1646,6 +1786,14 @@ navigate("discover");
             >
               Safety
             </button>
+            <button
+  type="button"
+  onClick={() => navigate("premium")}
+  style={styles.navButton}
+>
+  <Sparkles size={15} style={{ marginRight: 5 }} />
+  Premium
+</button>
           </div>
         </div>
       </footer>
