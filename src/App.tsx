@@ -1516,93 +1516,100 @@ export default function App() {
   return (
     <div style={styles.app}>
       <header style={styles.header}>
-        <div style={styles.headerInner}>
-          {renderBrand()}
+  <div className="heartora-header-inner" style={styles.headerInner}>
+    {renderBrand()}
 
-          <button
-  type="button"
-  className="heartora-menu-button"
-  aria-label={menuOpen ? "Close menu" : "Open menu"}
-  aria-expanded={menuOpen}
-  onClick={() => setMenuOpen((open) => !open)}
->
-  {menuOpen ? <X size={19} /> : <Menu size={19} />}
-</button>
-           
+    {!currentUser && (
+      <button
+        type="button"
+        className="heartora-join-button"
+        onClick={() => navigate("signup")}
+        style={styles.primaryButton}
+      >
+        Join free
+        <ChevronRight size={16} />
+      </button>
+    )}
+
+    <button
+      type="button"
+      className="heartora-menu-button"
+      aria-label={menuOpen ? "Close menu" : "Open menu"}
+      aria-expanded={menuOpen}
+      aria-controls="heartora-main-navigation"
+      onClick={() => setMenuOpen((open) => !open)}
+    >
+      {menuOpen ? <X size={19} /> : <Menu size={19} />}
+    </button>
 
     <nav
-        aria-label="Main navigation"
-        style={{
-          ...styles.nav,
-          display: menuOpen ? "flex" : undefined,
-        }}
+      id="heartora-main-navigation"
+      aria-label="Main navigation"
+      className={
+        menuOpen
+          ? "heartora-navigation open"
+          : "heartora-navigation"
+      }
+      style={styles.nav}
+    >
+      <button
+        type="button"
+        style={styles.navButton}
+        onClick={() => navigate("discover")}
       >
-    
-            <button
-              type="button"
-              style={styles.navButton}
-              onClick={() => navigate("discover")}
-            >
-              Discover
-            </button>
-            <button
-              type="button"
-              style={styles.navButton}
-              onClick={() => navigate("about")}
-            >
-              About
-            </button>
-            <button
-              type="button"
-              style={styles.navButton}
-              onClick={() => navigate("safety")}
-            >
-              Safety
-            </button>
+        Discover
+      </button>
 
-            {currentUser ? (
-              <>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 750,
-                    color: "#7d2459",
-                    padding: "8px 5px",
-                  }}
-                >
-                  {currentUser.displayName}
-                </span>
-                <button
-                  type="button"
-                  disabled={authLoading}
-                  style={styles.secondaryButton}
-                  onClick={handleSignout}
-                >
-                  <LogOut size={16} />
-                  {authLoading ? "Please wait…" : "Sign out"}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  style={styles.navButton}
-                  onClick={() => navigate("signin")}
-                >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  style={styles.primaryButton}
-                  onClick={() => navigate("signup")}
-                >
-                  Join free
-                </button>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+      <button
+        type="button"
+        style={styles.navButton}
+        onClick={() => navigate("about")}
+      >
+        About
+      </button>
+
+      <button
+        type="button"
+        style={styles.navButton}
+        onClick={() => navigate("safety")}
+      >
+        Safety
+      </button>
+
+      {currentUser ? (
+        <>
+          <span
+            style={{
+              padding: "8px 10px",
+              color: "#7d2459",
+              fontWeight: 600,
+            }}
+          >
+            {currentUser.displayName}
+          </span>
+
+          <button
+            type="button"
+            style={styles.navButton}
+            onClick={handleSignout}
+            disabled={authLoading}
+          >
+            <LogOut size={16} />
+            {authLoading ? "Please wait…" : "Sign out"}
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          style={styles.navButton}
+          onClick={() => navigate("signin")}
+        >
+          Sign in
+        </button>
+      )}
+    </nav>
+  </div>
+</header>
 
       {page === "discover" && renderDiscover()}
       {page === "about" && renderAbout()}
