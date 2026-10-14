@@ -1566,9 +1566,15 @@ navigate("discover");
           HEARTORA PREMIUM
         </div>
 
-        <h1 style={{ ...styles.heading, textAlign: "center" }}>
-          Make meaningful connections
-        </h1>
+        <h1
+  style={{
+    ...styles.sectionTitle,
+    textAlign: "center",
+    marginTop: 24,
+  }}
+>
+  Make meaningful connections
+</h1>
 
         <p style={{ ...styles.muted, textAlign: "center" }}>
           Discover more possibilities with planned Premium features.
@@ -1714,6 +1720,14 @@ navigate("discover");
       >
         Safety
       </button>
+      <button
+  type="button"
+  style={styles.navButton}
+  onClick={() => navigate("premium")}
+>
+  <Sparkles size={15} />
+  Premium
+</button>
 
       {currentUser ? (
         <>
@@ -1751,10 +1765,14 @@ navigate("discover");
 </header>
 
       {page === "discover" && renderDiscover()}
-      {page === "about" && renderAbout()}
-      {page === "safety" && renderSafety()}
-      {(page === "signup" || page === "signin" || page === "forgot") &&
-        renderAuthPage()}
+{page === "about" && renderAbout()}
+{page === "safety" && renderSafety()}
+{page === "premium" && renderPremium()}
+
+{(page === "signup" ||
+  page === "signin" ||
+  page === "forgot") &&
+  renderAuthPage()}
 
       <footer style={styles.footer}>
         <div style={styles.footerInner}>
