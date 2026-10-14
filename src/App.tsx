@@ -581,15 +581,14 @@ export default function App() {
       });
 
       if (result.user) {
-        setCurrentUser(result.user);
-      }
+  setCurrentUser(result.user);
+}
 
-      setPassword("");
+setPassword("");
+setConfirmPassword("");
 
-      setAuthNotice({
-        type: "success",
-        message: result.message || "You are signed in.",
-      });
+navigate("discover");
+        
     } catch (error) {
       setAuthNotice({
         type: "error",
