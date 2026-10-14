@@ -1303,3 +1303,70 @@ a {
     padding-left: 9px;
   }
   }
+/* Heartora responsive header navigation */
+
+.heartora-menu-button {
+  display: none !important;
+}
+
+.heartora-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 760px) {
+  .heartora-menu-button {
+    display: inline-flex !important;
+    flex-shrink: 0;
+  }
+
+  .heartora-navigation {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 16px;
+    right: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 5px;
+    padding: 16px;
+    border: 1px solid #f0e5ec;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 16px 40px rgba(65, 30, 57, 0.12);
+  }
+
+  .heartora-navigation.open {
+    display: flex;
+  }
+
+  .heartora-navigation > button {
+    width: 100%;
+    min-height: 45px;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .heartora-navigation > button:last-child {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .heartora-navigation > span {
+    padding: 12px !important;
+  }
+}
+
+@media (min-width: 761px) {
+  .heartora-navigation {
+    display: flex !important;
+  }
+
+  .heartora-menu-button {
+    display: none !important;
+  }
+  }
