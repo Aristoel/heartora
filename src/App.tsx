@@ -92,7 +92,9 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: 18,
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+  },
+    
   },
   brand: {
     display: "inline-flex",
@@ -1524,10 +1526,15 @@ export default function App() {
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
             style={{
-              ...styles.secondaryButton,
-              padding: 10,
-              display: "none",
-            }}
+  ...styles.secondaryButton,
+  padding: 10,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+}}
+              
+    
           >
             {menuOpen ? <X size={19} /> : <Menu size={19} />}
           </button>
