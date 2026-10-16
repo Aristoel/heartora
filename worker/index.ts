@@ -1329,7 +1329,60 @@ export default {
         error: "Authentication endpoint not found or method not allowed.",
       }, 404);
     }
+if (url.pathname === "/api/admin/stats") {
+  if (request.method !== "GET") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
 
+  try {
+    const admin = await requireAdmin(request, env);
+
+    if (!admin) {
+      return json({
+        success: false,
+        error: "Administrator access required.",
+      }, 403);
+    }
+
+    const members = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM users",
+    ).first<{ total: number }>();
+
+    const verified = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM users WHERE email_verified = 1",
+    ).first<{ total: number }>();
+
+    const premium = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM user_subscriptions",
+    ).first<{ total: number }>();
+
+    const active = await env.DB.prepare(
+      `SELECT COUNT(*) AS total
+       FROM user_subscriptions
+       WHERE status = 'active'`,
+    ).first<{ total: number }>();
+
+    return json({
+      success: true,
+      stats: {
+        totalMembers: members?.total ?? 0,
+        verifiedMembers: verified?.total ?? 0,
+        premiumSubscribers: premium?.total ?? 0,
+        activeSubscriptions: active?.total ?? 0,
+      },
+    });
+  } catch (error) {
+    console.error("Admin statistics request failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to load administrator statistics.",
+    }, 500);
+  }
+          }
     if (url.pathname === "/api/health") {
       if (request.method !== "GET") {
         return json({ success: false, error: "Method not allowed" }, 405);
