@@ -1382,7 +1382,101 @@ if (url.pathname === "/api/admin/stats") {
       error: "Unable to load administrator statistics.",
     }, 500);
   }
-          }
+ }
+    if (url.pathname === "/api/admin/members") {
+  if (request.method !== "GET") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  try {
+    const admin = await requireAdmin(request, env);
+
+    if (!admin) {
+      return json({
+        success: false,
+        error: "Administrator access required.",
+      }, 403);
+    }
+
+    const search = (url.searchParams.get("q") ?? "").trim();
+    const pageValue = Number(url.searchParams.get("page") ?? "1");
+
+    const page = Number.isSafeInteger(pageValue) && pageValue > 0
+      ? Math.min(pageValue, 1000000)
+      : 1;
+
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT
+        id,
+        email,
+        display_name,
+        country,
+        email_verified,
+        created_at
+      FROM users
+    `;
+
+    let countQuery = "SELECT COUNT(*) AS total FROM users";
+
+    const params: string[] = [];
+
+    if (search) {
+      query += " WHERE email LIKE ? OR display_name LIKE ?";
+      countQuery += " WHERE email LIKE ? OR display_name LIKE ?";
+
+      const term = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
+      params.push(term, term);
+    }
+
+    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+
+    const memberRows = await env.DB.prepare(query)
+      .bind(...params, limit, offset)
+      .all<{
+        id: string;
+        email: string;
+        display_name: string;
+        country: string;
+        email_verified: number;
+        created_at: string;
+      }>();
+
+    const countResult = await env.DB.prepare(countQuery)
+      .bind(...params)
+      .first<{ total: number }>();
+
+    return json({
+      success: true,
+      members: (memberRows.results ?? []).map((member) => ({
+        id: member.id,
+        email: member.email,
+        displayName: member.display_name,
+        country: member.country,
+        emailVerified: member.email_verified === 1,
+        createdAt: member.created_at,
+      })),
+      pagination: {
+        page,
+        limit,
+        total: countResult?.total ?? 0,
+      },
+    });
+  } catch (error) {
+    console.error("Admin member directory request failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to load the member directory.",
+    }, 500);
+  }
+ }
+    
     if (url.pathname === "/api/health") {
       if (request.method !== "GET") {
         return json({ success: false, error: "Method not allowed" }, 405);
