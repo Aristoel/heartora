@@ -839,21 +839,28 @@ async function handleStripeWebhook(
   env: Env,
 ): Promise<Response> {
   if (request.method !== "POST") {
-    return json({
-      success: false,
-      error: "Method not allowed.",
-    }, 405);
+    return json(
+      {
+        success: false,
+        error: "Method not allowed.",
+      },
+      405,
+    );
   }
 
   const signature = request.headers.get("Stripe-Signature");
 
   if (!signature) {
-    return json({
-      success: false,
-      error: "Missing Stripe signature.",
-    }, 400);
+    return json(
+      {
+        success: false,
+        error: "Missing Stripe signature.",
+      },
+      400,
+    );
   }
 
+  // Read the raw payload so Stripe's signature can be verified.
   const payload = await request.text();
 
   let verified: boolean;
@@ -865,21 +872,31 @@ async function handleStripeWebhook(
       env.STRIPE_WEBHOOK_SECRET,
     );
   } catch (error) {
-    console.error("Stripe webhook signature verification failed:", error);
+    console.error(
+      "Stripe webhook signature verification failed:",
+      error,
+    );
 
-    return json({
-      success: false,
-      error: "Unable to verify webhook signature.",
-    }, 400);
+    return json(
+      {
+        success: false,
+        error: "Unable to verify webhook signature.",
+      },
+      400,
+    );
   }
 
   if (!verified) {
-    return json({
-      success: false,
-      error: "Invalid Stripe signature.",
-    }, 400);
+    return json(
+      {
+        success: false,
+        error: "Invalid Stripe signature.",
+      },
+      400,
+    );
   }
 
+  // Parse the verified Stripe event.
   let event: {
     id?: string;
     type?: string;
@@ -891,31 +908,41 @@ async function handleStripeWebhook(
   try {
     event = JSON.parse(payload) as typeof event;
   } catch {
-    return json({
-      success: false,
-      error: "Invalid webhook payload.",
-    }, 400);
+    return json(
+      {
+        success: false,
+        error: "Invalid webhook payload.",
+      },
+      400,
+    );
   }
 
-    if (!event.id || !event.type || !event.data?.object) {
-    return json({
-      success: false,
-      error: "Incomplete webhook event.",
-    }, 400);
+  if (!event.id || !event.type || !event.data?.object) {
+    return json(
+      {
+        success: false,
+        error: "Incomplete webhook event.",
+      },
+      400,
+    );
   }
 
-  // Ignore events that have already been processed successfully.
+  const eventId = event.id;
+  const eventType = event.type;
+  const object = event.data.object;
+
+  // Avoid processing events that have already succeeded.
   try {
-    const processedEvent = await env.DB.prepare(
+    const processed = await env.DB.prepare(
       `SELECT event_id
        FROM stripe_webhook_events
        WHERE event_id = ?
        LIMIT 1`,
     )
-      .bind(event.id)
+      .bind(eventId)
       .first<{ event_id: string }>();
 
-    if (processedEvent) {
+    if (processed) {
       return json({
         success: true,
         received: true,
@@ -923,16 +950,17 @@ async function handleStripeWebhook(
       });
     }
   } catch (error) {
-    console.error("Stripe webhook event lookup failed:", error);
+    console.error("Stripe event lookup failed:", error);
 
-    return json({
-      success: false,
-      error: "Unable to check webhook event history.",
-    }, 500);
+    return json(
+      {
+        success: false,
+        error: "Unable to check webhook event history.",
+      },
+      500,
+    );
   }
 
-  const object = event.data.object;
-    
   const subscriptionEvents = new Set([
     "customer.subscription.created",
     "customer.subscription.updated",
@@ -940,177 +968,232 @@ async function handleStripeWebhook(
   ]);
 
   try {
-    if (
-      event.type === "checkout.session.completed" ||
-      subscriptionEvents.has(event.type)
-    ) {
-      let userId: string | null = null;
-      let customerId: string | null = null;
-      let subscriptionId: string | null = null;
-      let priceId: string | null = null;
-      let status = "inactive";
-      let periodEnd: string | null = null;
-      let cancelAtPeriodEnd = 0;
+    /*
+     * CHECKOUT COMPLETED
+     *
+     * The checkout event confirms that the checkout completed.
+     * The subscription lifecycle events below are responsible
+     * for saving the subscription status in D1.
+     *
+     * Do not return early; record this event after handling it.
+     */
+    if (eventType === "checkout.session.completed") {
+      const checkoutMode =
+        typeof object.mode === "string"
+          ? object.mode
+          : "";
 
-            if (event.type === "checkout.session.completed") {
-        /*
-         * Checkout completion is acknowledged here.
-         * The subscription lifecycle event will update
-         * user_subscriptions with the subscription status.
-         *
-         * Do not return early: the event must reach
-         * the event-recording code below.
-         */
-      } else {
-        userId =
-          typeof (
-            object.metadata as Record<string, unknown> | undefined
-          )?.user_id === "string"
+      if (checkoutMode === "subscription") {
+        const paymentStatus =
+          typeof object.payment_status === "string"
+            ? object.payment_status
+            : "";
+
+        console.log("Stripe subscription checkout completed.", {
+          eventId,
+          paymentStatus,
+        });
+      }
+    }
+
+    /*
+     * SUBSCRIPTION CREATED, UPDATED, OR DELETED
+     */
+    else if (subscriptionEvents.has(eventType)) {
+      const metadata =
+        object.metadata &&
+        typeof object.metadata === "object"
+          ? object.metadata as Record<string, unknown>
+          : {};
+
+      let userId =
+        typeof metadata.user_id === "string"
+          ? metadata.user_id
+          : null;
+
+      const subscriptionId =
+        typeof object.id === "string"
+          ? object.id
+          : null;
+
+      const customerId =
+        typeof object.customer === "string"
+          ? object.customer
+          : object.customer &&
+              typeof object.customer === "object" &&
+              typeof (
+                object.customer as Record<string, unknown>
+              ).id === "string"
             ? String(
-                (
-                  object.metadata as Record<string, unknown>
-                ).user_id,
+                (object.customer as Record<string, unknown>).id,
               )
             : null;
 
-        subscriptionId =
-          typeof object.id === "string"
-            ? object.id
-            : null;
+      if (!subscriptionId) {
+        console.error(
+          "Subscription event is missing its subscription ID.",
+          { eventId, eventType },
+        );
 
-        customerId =
-          typeof object.customer === "string"
-            ? object.customer
-            : null;
-
-        status =
-          typeof object.status === "string"
-            ? object.status
-            : "inactive";
-
-        cancelAtPeriodEnd =
-          object.cancel_at_period_end === true ? 1 : 0;
-
-        const periodEndValue =
-          typeof object.current_period_end === "number"
-            ? object.current_period_end
-            : null;
-
-        periodEnd = periodEndValue
-          ? new Date(periodEndValue * 1000).toISOString()
-          : null;
-
-        const items = object.items as
-          | {
-              data?: Array<{
-                price?: {
-                  id?: string;
-                };
-              }>;
-            }
-          | undefined;
-
-        priceId =
-          typeof items?.data?.[0]?.price?.id === "string"
-            ? items.data[0].price.id
-            : null;
-
-        if (!subscriptionId) {
-          return json({
-            success: true,
-            received: true,
-          });
-        }
-
-        if (!userId) {
-          const existing = await env.DB.prepare(
-            `SELECT user_id
-             FROM user_subscriptions
-             WHERE stripe_subscription_id = ?
-             LIMIT 1`,
-          )
-            .bind(subscriptionId)
-            .first<{ user_id: string }>();
-
-          userId = existing?.user_id ?? null;
-        }
-
-        if (!userId) {
-          console.error(
-            "Stripe subscription event has no matching Heartora user.",
-            { eventId: event.id, eventType: event.type },
-          );
-
-          return json({
+        return json(
+          {
             success: false,
-            error: "Subscription user could not be matched.",
-          }, 500);
-        }
+            error: "Subscription ID is missing.",
+          },
+          500,
+        );
+      }
 
-        const existing = await env.DB.prepare(
-          `SELECT id
+      // Recover the Heartora user ID if metadata is unavailable.
+      if (!userId) {
+        const existingBySubscription = await env.DB.prepare(
+          `SELECT user_id
            FROM user_subscriptions
-           WHERE user_id = ?
+           WHERE stripe_subscription_id = ?
            LIMIT 1`,
         )
-          .bind(userId)
-          .first<{ id: string }>();
+          .bind(subscriptionId)
+          .first<{ user_id: string }>();
 
-        if (existing) {
-          await env.DB.prepare(
-            `UPDATE user_subscriptions
-             SET stripe_customer_id = COALESCE(?, stripe_customer_id),
-                 stripe_subscription_id = ?,
-                 stripe_price_id = COALESCE(?, stripe_price_id),
-                 status = ?,
-                 current_period_end = ?,
-                 cancel_at_period_end = ?,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE user_id = ?`,
-          )
-            .bind(
-              customerId,
-              subscriptionId,
-              priceId,
-              status,
-              periodEnd,
-              cancelAtPeriodEnd,
-              userId,
-            )
-            .run();
-        } else {
-          await env.DB.prepare(
-            `INSERT INTO user_subscriptions (
-               id,
-               user_id,
-               stripe_customer_id,
-               stripe_subscription_id,
-               stripe_price_id,
-               status,
-               current_period_end,
-               cancel_at_period_end
-             )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-            .bind(
-              randomId(),
-              userId,
-              customerId,
-              subscriptionId,
-              priceId,
-              status,
-              periodEnd,
-              cancelAtPeriodEnd,
-            )
-            .run();
-        }
+        userId = existingBySubscription?.user_id ?? null;
       }
-        
-    } else if (event.type === "invoice.payment_failed") {
-      const subscriptionId =
-        typeof object.subscription === "string"
-          ? object.subscription
+
+      if (!userId) {
+        console.error(
+          "Could not match Stripe subscription to a Heartora user.",
+          { eventId, eventType, subscriptionId },
+        );
+
+        // Return a failure so Stripe can retry delivery.
+        return json(
+          {
+            success: false,
+            error: "Subscription user could not be matched.",
+          },
+          500,
+        );
+      }
+
+      const stripeStatus =
+        typeof object.status === "string"
+          ? object.status
+          : "inactive";
+
+      const cancelAtPeriodEnd =
+        object.cancel_at_period_end === true ? 1 : 0;
+
+      const periodEndSeconds =
+        typeof object.current_period_end === "number"
+          ? object.current_period_end
           : null;
+
+      const currentPeriodEnd =
+        periodEndSeconds !== null
+          ? new Date(periodEndSeconds * 1000).toISOString()
+          : null;
+
+      const items = object.items as
+        | {
+            data?: Array<{
+              price?: {
+                id?: string;
+              };
+            }>;
+          }
+        | undefined;
+
+      const priceId =
+        typeof items?.data?.[0]?.price?.id === "string"
+          ? items.data[0].price.id
+          : null;
+
+      const existingByUser = await env.DB.prepare(
+        `SELECT id
+         FROM user_subscriptions
+         WHERE user_id = ?
+         LIMIT 1`,
+      )
+        .bind(userId)
+        .first<{ id: string }>();
+
+      if (existingByUser) {
+        await env.DB.prepare(
+          `UPDATE user_subscriptions
+           SET stripe_customer_id =
+                 COALESCE(?, stripe_customer_id),
+               stripe_subscription_id = ?,
+               stripe_price_id =
+                 COALESCE(?, stripe_price_id),
+               status = ?,
+               current_period_end = ?,
+               cancel_at_period_end = ?,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = ?`,
+        )
+          .bind(
+            customerId,
+            subscriptionId,
+            priceId,
+            stripeStatus,
+            currentPeriodEnd,
+            cancelAtPeriodEnd,
+            userId,
+          )
+          .run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO user_subscriptions (
+             id,
+             user_id,
+             stripe_customer_id,
+             stripe_subscription_id,
+             stripe_price_id,
+             status,
+             current_period_end,
+             cancel_at_period_end
+           )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+          .bind(
+            randomId(),
+            userId,
+            customerId,
+            subscriptionId,
+            priceId,
+            stripeStatus,
+            currentPeriodEnd,
+            cancelAtPeriodEnd,
+          )
+          .run();
+      }
+
+      console.log("Heartora subscription synchronized.", {
+        eventId,
+        eventType,
+        userId,
+        subscriptionId,
+        status: stripeStatus,
+      });
+    }
+
+    /*
+     * PAYMENT FAILED
+     */
+    else if (eventType === "invoice.payment_failed") {
+      const subscriptionValue = object.subscription;
+
+      const subscriptionId =
+        typeof subscriptionValue === "string"
+          ? subscriptionValue
+          : subscriptionValue &&
+              typeof subscriptionValue === "object" &&
+              typeof (
+                subscriptionValue as Record<string, unknown>
+              ).id === "string"
+            ? String(
+                (subscriptionValue as Record<string, unknown>).id,
+              )
+            : null;
 
       if (subscriptionId) {
         await env.DB.prepare(
@@ -1121,42 +1204,59 @@ async function handleStripeWebhook(
         )
           .bind(subscriptionId)
           .run();
+      } else {
+        console.warn(
+          "Payment-failed event has no subscription ID.",
+          { eventId },
+        );
       }
-    } else if (event.type === "invoice.paid") {
-      /*
-       * Do not grant access from an invoice alone.
-       * Subscription lifecycle events provide the status.
-       */
     }
 
-        await env.DB.prepare(
+    /*
+     * PAYMENT SUCCEEDED
+     *
+     * Do not independently grant premium access based only
+     * on this event. Subscription status is synchronized above.
+     */
+    else if (eventType === "invoice.paid") {
+      console.log("Stripe invoice paid.", { eventId });
+    }
+
+    /*
+     * Other events are acknowledged and recorded.
+     */
+
+    // Record the event only after its processing has succeeded.
+    await env.DB.prepare(
       `INSERT OR IGNORE INTO stripe_webhook_events
-        (event_id, event_type)
+         (event_id, event_type)
        VALUES (?, ?)`,
     )
-      .bind(event.id, event.type)
+      .bind(eventId, eventType)
       .run();
 
     return json({
       success: true,
       received: true,
     });
-      
- 
-    
   } catch (error) {
     console.error("Stripe webhook processing failed:", {
-      eventId: event.id,
-      eventType: event.type,
+      eventId,
+      eventType,
       error,
     });
 
-    return json({
-      success: false,
-      error: "Webhook processing failed.",
-    }, 500);
+    // A non-2xx response allows Stripe to retry.
+    return json(
+      {
+        success: false,
+        error: "Webhook processing failed.",
+      },
+      500,
+    );
   }
- }
+      }
+        
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
