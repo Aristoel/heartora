@@ -701,7 +701,7 @@ async function handleCreateCheckout(
 
   const form = new URLSearchParams();
 
-  form.set("ui_mode", "embedded");
+  form.set("ui_mode", "embedded_page");
   form.set("mode", "subscription");
   form.set("line_items[0][price]", priceId);
   form.set("line_items[0][quantity]", "1");
