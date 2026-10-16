@@ -3,7 +3,7 @@ export interface Env {
   ASSETS: Fetcher;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
-  STRIPE_PUBLISHABLE_KEY: string;
+  VITE_STRIPE_PUBLISHABLE_KEY: string;
 }
 
 const SESSION_DAYS = 7;
