@@ -498,6 +498,7 @@ function calculateAge(dateString: string): number {
 
 export default function App() {
   const [page, setPage] = useState<Page>("discover");
+  const [checkoutPriceId, setCheckoutPriceId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const [country, setCountry] = useState("United States");
@@ -1606,6 +1607,7 @@ navigate("discover");
   const plans = [
     {
       name: "Monthly",
+      priceId: "price_1UQwm1D4sEidTZkrl2sXAmYo",
       price: "$14.99",
       period: "/month",
       description: "Try all the benefits of Heartora Premium.",
@@ -1622,6 +1624,7 @@ navigate("discover");
     },
     {
       name: "3 Months",
+      priceId: "price_1UQwoDD4sEidTZkrDYJq8CRJ",
       price: "$35.97",
       period: "/3 months",
       description: "Enjoy Premium with a little extra flexibility.",
@@ -1635,6 +1638,7 @@ navigate("discover");
     },
     {
       name: "Annual",
+      priceId: "price_1UQwvxD4sEidTZkriAaZ5uMN",
       price: "$95.88",
       period: "/year",
       description: "Our best planned price for long-term members.",
@@ -1710,20 +1714,26 @@ navigate("discover");
                 ))}
               </ul>
 
-              <button
-                type="button"
-                className="heartora-premium-button"
-                onClick={() =>
-                  window.alert(
-                    "Heartora Premium checkout is not available yet. " +
-                    "No payment has been taken. We'll enable subscriptions " +
-                    "after secure payment processing is connected."
-                  )
-                }
-              >
-                Explore this plan
-                <ChevronRight size={16} />
-              </button>
+         <button
+  type="button"
+  className="heartora-premium-button"
+  onClick={() => {
+    if (!currentUser) {
+      setAuthNotice({
+        type: "info",
+        message: "Please sign in before subscribing to Heartora Premium.",
+      });
+      navigate("signin");
+      return;
+    }
+
+    setCheckoutPriceId(plan.priceId);
+  }}
+>
+  Explore this plan
+  <ChevronRight size={16} />
+</button>
+                
             </article>
           ))}
         </div>
@@ -1863,6 +1873,12 @@ navigate("discover");
   page === "signin" ||
   page === "forgot") &&
   renderAuthPage()}
+      {checkoutPriceId && (
+  <HeartoraEmbeddedCheckout
+    priceId={checkoutPriceId}
+    onClose={() => setCheckoutPriceId(null)}
+  />
+)}
 
       <footer style={styles.footer}>
         <div style={styles.footerInner}>
