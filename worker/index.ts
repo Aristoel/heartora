@@ -897,15 +897,42 @@ async function handleStripeWebhook(
     }, 400);
   }
 
-  if (!event.id || !event.type || !event.data?.object) {
+    if (!event.id || !event.type || !event.data?.object) {
     return json({
       success: false,
       error: "Incomplete webhook event.",
     }, 400);
   }
 
-  const object = event.data.object;
+  // Ignore events that have already been processed successfully.
+  try {
+    const processedEvent = await env.DB.prepare(
+      `SELECT event_id
+       FROM stripe_webhook_events
+       WHERE event_id = ?
+       LIMIT 1`,
+    )
+      .bind(event.id)
+      .first<{ event_id: string }>();
 
+    if (processedEvent) {
+      return json({
+        success: true,
+        received: true,
+        duplicate: true,
+      });
+    }
+  } catch (error) {
+    console.error("Stripe webhook event lookup failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to check webhook event history.",
+    }, 500);
+  }
+
+  const object = event.data.object;
+    
   const subscriptionEvents = new Set([
     "customer.subscription.created",
     "customer.subscription.updated",
@@ -925,190 +952,160 @@ async function handleStripeWebhook(
       let periodEnd: string | null = null;
       let cancelAtPeriodEnd = 0;
 
-      if (event.type === "checkout.session.completed") {
+            if (event.type === "checkout.session.completed") {
+        /*
+         * Checkout completion is acknowledged here.
+         * The subscription lifecycle event will update
+         * user_subscriptions with the subscription status.
+         *
+         * Do not return early: the event must reach
+         * the event-recording code below.
+         */
+      } else {
         userId =
-          typeof object.client_reference_id === "string"
-            ? object.client_reference_id
-            : typeof (
-                object.metadata as Record<string, unknown> | undefined
-              )?.user_id === "string"
-              ? String(
-                  (
-                    object.metadata as Record<string, unknown>
-                  ).user_id,
-                )
-              : null;
+          typeof (
+            object.metadata as Record<string, unknown> | undefined
+          )?.user_id === "string"
+            ? String(
+                (
+                  object.metadata as Record<string, unknown>
+                ).user_id,
+              )
+            : null;
+
+        subscriptionId =
+          typeof object.id === "string"
+            ? object.id
+            : null;
 
         customerId =
           typeof object.customer === "string"
             ? object.customer
             : null;
 
-        subscriptionId =
-          typeof object.subscription === "string"
-            ? object.subscription
+        status =
+          typeof object.status === "string"
+            ? object.status
+            : "inactive";
+
+        cancelAtPeriodEnd =
+          object.cancel_at_period_end === true ? 1 : 0;
+
+        const periodEndValue =
+          typeof object.current_period_end === "number"
+            ? object.current_period_end
             : null;
 
-        if (!userId || !subscriptionId) {
+        periodEnd = periodEndValue
+          ? new Date(periodEndValue * 1000).toISOString()
+          : null;
+
+        const items = object.items as
+          | {
+              data?: Array<{
+                price?: {
+                  id?: string;
+                };
+              }>;
+            }
+          | undefined;
+
+        priceId =
+          typeof items?.data?.[0]?.price?.id === "string"
+            ? items.data[0].price.id
+            : null;
+
+        if (!subscriptionId) {
           return json({
             success: true,
             received: true,
           });
         }
 
-        /*
-         * A completed checkout does not by itself prove that
-         * a subscription is currently active. The subsequent
-         * subscription event records its authoritative status.
-         */
-        return json({
-          success: true,
-          received: true,
-        });
-      }
+        if (!userId) {
+          const existing = await env.DB.prepare(
+            `SELECT user_id
+             FROM user_subscriptions
+             WHERE stripe_subscription_id = ?
+             LIMIT 1`,
+          )
+            .bind(subscriptionId)
+            .first<{ user_id: string }>();
 
-      userId =
-        typeof (
-          object.metadata as Record<string, unknown> | undefined
-        )?.user_id === "string"
-          ? String(
-              (
-                object.metadata as Record<string, unknown>
-              ).user_id,
-            )
-          : null;
+          userId = existing?.user_id ?? null;
+        }
 
-      subscriptionId =
-        typeof object.id === "string"
-          ? object.id
-          : null;
+        if (!userId) {
+          console.error(
+            "Stripe subscription event has no matching Heartora user.",
+            { eventId: event.id, eventType: event.type },
+          );
 
-      customerId =
-        typeof object.customer === "string"
-          ? object.customer
-          : null;
+          return json({
+            success: false,
+            error: "Subscription user could not be matched.",
+          }, 500);
+        }
 
-      status =
-        typeof object.status === "string"
-          ? object.status
-          : "inactive";
-
-      cancelAtPeriodEnd =
-        object.cancel_at_period_end === true ? 1 : 0;
-
-      const periodEndValue =
-        typeof object.current_period_end === "number"
-          ? object.current_period_end
-          : null;
-
-      periodEnd = periodEndValue
-        ? new Date(periodEndValue * 1000).toISOString()
-        : null;
-
-      const items = object.items as
-        | {
-            data?: Array<{
-              price?: {
-                id?: string;
-              };
-            }>;
-          }
-        | undefined;
-
-      priceId =
-        typeof items?.data?.[0]?.price?.id === "string"
-          ? items.data[0].price.id
-          : null;
-
-      if (!subscriptionId) {
-        return json({
-          success: true,
-          received: true,
-        });
-      }
-
-      if (!userId) {
         const existing = await env.DB.prepare(
-          `SELECT user_id
+          `SELECT id
            FROM user_subscriptions
-           WHERE stripe_subscription_id = ?
+           WHERE user_id = ?
            LIMIT 1`,
         )
-          .bind(subscriptionId)
-          .first<{ user_id: string }>();
+          .bind(userId)
+          .first<{ id: string }>();
 
-        userId = existing?.user_id ?? null;
-      }
-
-      if (!userId) {
-        console.error(
-          "Stripe subscription event has no matching Heartora user.",
-          { eventId: event.id, eventType: event.type },
-        );
-
-        return json({
-          success: false,
-          error: "Subscription user could not be matched.",
-        }, 500);
-      }
-
-      const existing = await env.DB.prepare(
-        `SELECT id
-         FROM user_subscriptions
-         WHERE user_id = ?
-         LIMIT 1`,
-      )
-        .bind(userId)
-        .first<{ id: string }>();
-
-      if (existing) {
-        await env.DB.prepare(
-          `UPDATE user_subscriptions
-           SET stripe_customer_id = COALESCE(?, stripe_customer_id),
-               stripe_subscription_id = ?,
-               stripe_price_id = COALESCE(?, stripe_price_id),
-               status = ?,
-               current_period_end = ?,
-               cancel_at_period_end = ?,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE user_id = ?`,
-        )
-          .bind(
-            customerId,
-            subscriptionId,
-            priceId,
-            status,
-            periodEnd,
-            cancelAtPeriodEnd,
-            userId,
+        if (existing) {
+          await env.DB.prepare(
+            `UPDATE user_subscriptions
+             SET stripe_customer_id = COALESCE(?, stripe_customer_id),
+                 stripe_subscription_id = ?,
+                 stripe_price_id = COALESCE(?, stripe_price_id),
+                 status = ?,
+                 current_period_end = ?,
+                 cancel_at_period_end = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE user_id = ?`,
           )
-          .run();
-      } else {
-        await env.DB.prepare(
-          `INSERT INTO user_subscriptions (
-             id,
-             user_id,
-             stripe_customer_id,
-             stripe_subscription_id,
-             stripe_price_id,
-             status,
-             current_period_end,
-             cancel_at_period_end
-           )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-          .bind(
-            randomId(),
-            userId,
-            customerId,
-            subscriptionId,
-            priceId,
-            status,
-            periodEnd,
-            cancelAtPeriodEnd,
+            .bind(
+              customerId,
+              subscriptionId,
+              priceId,
+              status,
+              periodEnd,
+              cancelAtPeriodEnd,
+              userId,
+            )
+            .run();
+        } else {
+          await env.DB.prepare(
+            `INSERT INTO user_subscriptions (
+               id,
+               user_id,
+               stripe_customer_id,
+               stripe_subscription_id,
+               stripe_price_id,
+               status,
+               current_period_end,
+               cancel_at_period_end
+             )
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           )
-          .run();
+            .bind(
+              randomId(),
+              userId,
+              customerId,
+              subscriptionId,
+              priceId,
+              status,
+              periodEnd,
+              cancelAtPeriodEnd,
+            )
+            .run();
+        }
       }
+        
     } else if (event.type === "invoice.payment_failed") {
       const subscriptionId =
         typeof object.subscription === "string"
@@ -1132,10 +1129,21 @@ async function handleStripeWebhook(
        */
     }
 
+        await env.DB.prepare(
+      `INSERT OR IGNORE INTO stripe_webhook_events
+        (event_id, event_type)
+       VALUES (?, ?)`,
+    )
+      .bind(event.id, event.type)
+      .run();
+
     return json({
       success: true,
       received: true,
     });
+      
+ 
+    
   } catch (error) {
     console.error("Stripe webhook processing failed:", {
       eventId: event.id,
@@ -1148,7 +1156,7 @@ async function handleStripeWebhook(
       error: "Webhook processing failed.",
     }, 500);
   }
-  }
+ }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
