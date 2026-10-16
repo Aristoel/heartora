@@ -766,7 +766,390 @@ async function handleCreateCheckout(
       error: "Unable to connect to the payment service.",
     }, 502);
   }
-                  }
+}
+
+async function verifyStripeSignature(
+  payload: string,
+  signatureHeader: string,
+  secret: string,
+): Promise<boolean> {
+  const parts = signatureHeader.split(",");
+
+  const timestampPart = parts.find((part) =>
+    part.startsWith("t=")
+  );
+
+  const signatureParts = parts
+    .filter((part) => part.startsWith("v1="))
+    .map((part) => part.slice(3));
+
+  if (!timestampPart || signatureParts.length === 0) {
+    return false;
+  }
+
+  const timestamp = Number(timestampPart.slice(2));
+
+  if (
+    !Number.isSafeInteger(timestamp) ||
+    Math.abs(Date.now() / 1000 - timestamp) > 300
+  ) {
+    return false;
+  }
+
+  const signedPayload = `${timestamp}.${payload}`;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    {
+      name: "HMAC",
+      hash: "SHA-256",
+    },
+    false,
+    ["sign"],
+  );
+
+  const digest = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(signedPayload),
+  );
+
+  const expected = bytesToHex(new Uint8Array(digest));
+
+  return signatureParts.some((signature) => {
+    if (!/^[0-9a-f]{64}$/i.test(signature)) {
+      return false;
+    }
+
+    let difference = 0;
+
+    for (let i = 0; i < expected.length; i++) {
+      difference |=
+        expected.charCodeAt(i) ^
+        signature.toLowerCase().charCodeAt(i);
+    }
+
+    return difference === 0;
+  });
+}
+
+async function handleStripeWebhook(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  const signature = request.headers.get("Stripe-Signature");
+
+  if (!signature) {
+    return json({
+      success: false,
+      error: "Missing Stripe signature.",
+    }, 400);
+  }
+
+  const payload = await request.text();
+
+  let verified: boolean;
+
+  try {
+    verified = await verifyStripeSignature(
+      payload,
+      signature,
+      env.STRIPE_WEBHOOK_SECRET,
+    );
+  } catch (error) {
+    console.error("Stripe webhook signature verification failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to verify webhook signature.",
+    }, 400);
+  }
+
+  if (!verified) {
+    return json({
+      success: false,
+      error: "Invalid Stripe signature.",
+    }, 400);
+  }
+
+  let event: {
+    id?: string;
+    type?: string;
+    data?: {
+      object?: Record<string, unknown>;
+    };
+  };
+
+  try {
+    event = JSON.parse(payload) as typeof event;
+  } catch {
+    return json({
+      success: false,
+      error: "Invalid webhook payload.",
+    }, 400);
+  }
+
+  if (!event.id || !event.type || !event.data?.object) {
+    return json({
+      success: false,
+      error: "Incomplete webhook event.",
+    }, 400);
+  }
+
+  const object = event.data.object;
+
+  const subscriptionEvents = new Set([
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
+  ]);
+
+  try {
+    if (
+      event.type === "checkout.session.completed" ||
+      subscriptionEvents.has(event.type)
+    ) {
+      let userId: string | null = null;
+      let customerId: string | null = null;
+      let subscriptionId: string | null = null;
+      let priceId: string | null = null;
+      let status = "inactive";
+      let periodEnd: string | null = null;
+      let cancelAtPeriodEnd = 0;
+
+      if (event.type === "checkout.session.completed") {
+        userId =
+          typeof object.client_reference_id === "string"
+            ? object.client_reference_id
+            : typeof (
+                object.metadata as Record<string, unknown> | undefined
+              )?.user_id === "string"
+              ? String(
+                  (
+                    object.metadata as Record<string, unknown>
+                  ).user_id,
+                )
+              : null;
+
+        customerId =
+          typeof object.customer === "string"
+            ? object.customer
+            : null;
+
+        subscriptionId =
+          typeof object.subscription === "string"
+            ? object.subscription
+            : null;
+
+        if (!userId || !subscriptionId) {
+          return json({
+            success: true,
+            received: true,
+          });
+        }
+
+        /*
+         * A completed checkout does not by itself prove that
+         * a subscription is currently active. The subsequent
+         * subscription event records its authoritative status.
+         */
+        return json({
+          success: true,
+          received: true,
+        });
+      }
+
+      userId =
+        typeof (
+          object.metadata as Record<string, unknown> | undefined
+        )?.user_id === "string"
+          ? String(
+              (
+                object.metadata as Record<string, unknown>
+              ).user_id,
+            )
+          : null;
+
+      subscriptionId =
+        typeof object.id === "string"
+          ? object.id
+          : null;
+
+      customerId =
+        typeof object.customer === "string"
+          ? object.customer
+          : null;
+
+      status =
+        typeof object.status === "string"
+          ? object.status
+          : "inactive";
+
+      cancelAtPeriodEnd =
+        object.cancel_at_period_end === true ? 1 : 0;
+
+      const periodEndValue =
+        typeof object.current_period_end === "number"
+          ? object.current_period_end
+          : null;
+
+      periodEnd = periodEndValue
+        ? new Date(periodEndValue * 1000).toISOString()
+        : null;
+
+      const items = object.items as
+        | {
+            data?: Array<{
+              price?: {
+                id?: string;
+              };
+            }>;
+          }
+        | undefined;
+
+      priceId =
+        typeof items?.data?.[0]?.price?.id === "string"
+          ? items.data[0].price.id
+          : null;
+
+      if (!subscriptionId) {
+        return json({
+          success: true,
+          received: true,
+        });
+      }
+
+      if (!userId) {
+        const existing = await env.DB.prepare(
+          `SELECT user_id
+           FROM user_subscriptions
+           WHERE stripe_subscription_id = ?
+           LIMIT 1`,
+        )
+          .bind(subscriptionId)
+          .first<{ user_id: string }>();
+
+        userId = existing?.user_id ?? null;
+      }
+
+      if (!userId) {
+        console.error(
+          "Stripe subscription event has no matching Heartora user.",
+          { eventId: event.id, eventType: event.type },
+        );
+
+        return json({
+          success: false,
+          error: "Subscription user could not be matched.",
+        }, 500);
+      }
+
+      const existing = await env.DB.prepare(
+        `SELECT id
+         FROM user_subscriptions
+         WHERE user_id = ?
+         LIMIT 1`,
+      )
+        .bind(userId)
+        .first<{ id: string }>();
+
+      if (existing) {
+        await env.DB.prepare(
+          `UPDATE user_subscriptions
+           SET stripe_customer_id = COALESCE(?, stripe_customer_id),
+               stripe_subscription_id = ?,
+               stripe_price_id = COALESCE(?, stripe_price_id),
+               status = ?,
+               current_period_end = ?,
+               cancel_at_period_end = ?,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = ?`,
+        )
+          .bind(
+            customerId,
+            subscriptionId,
+            priceId,
+            status,
+            periodEnd,
+            cancelAtPeriodEnd,
+            userId,
+          )
+          .run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO user_subscriptions (
+             id,
+             user_id,
+             stripe_customer_id,
+             stripe_subscription_id,
+             stripe_price_id,
+             status,
+             current_period_end,
+             cancel_at_period_end
+           )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+          .bind(
+            randomId(),
+            userId,
+            customerId,
+            subscriptionId,
+            priceId,
+            status,
+            periodEnd,
+            cancelAtPeriodEnd,
+          )
+          .run();
+      }
+    } else if (event.type === "invoice.payment_failed") {
+      const subscriptionId =
+        typeof object.subscription === "string"
+          ? object.subscription
+          : null;
+
+      if (subscriptionId) {
+        await env.DB.prepare(
+          `UPDATE user_subscriptions
+           SET status = 'past_due',
+               updated_at = CURRENT_TIMESTAMP
+           WHERE stripe_subscription_id = ?`,
+        )
+          .bind(subscriptionId)
+          .run();
+      }
+    } else if (event.type === "invoice.paid") {
+      /*
+       * Do not grant access from an invoice alone.
+       * Subscription lifecycle events provide the status.
+       */
+    }
+
+    return json({
+      success: true,
+      received: true,
+    });
+  } catch (error) {
+    console.error("Stripe webhook processing failed:", {
+      eventId: event.id,
+      eventType: event.type,
+      error,
+    });
+
+    return json({
+      success: false,
+      error: "Webhook processing failed.",
+    }, 500);
+  }
+  }
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -836,6 +1219,9 @@ export default {
       }
 
       return handleCreateCheckout(request, env);
+    }
+    if (url.pathname === "/api/stripe/webhook") {
+  return handleStripeWebhook(request, env);
     }
     if (url.pathname === "/api/db-health") {
       if (request.method !== "GET") {
