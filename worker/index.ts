@@ -638,7 +638,132 @@ async function handleSignout(
     return response;
   }
 }
+const HEARTORA_STRIPE_PRICES = new Set([
+  "price_1UQwm1D4sEidTZkrl2sXAmYo",
+  "price_1UQwoDD4sEidTZkrDYJq8CRJ",
+  "price_1UQwvxD4sEidTZkriAaZ5uMN",
+]);
 
+async function handleCreateCheckout(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (!isSameOriginRequest(request)) {
+    return json({
+      success: false,
+      error: "Request origin rejected.",
+    }, 403);
+  }
+
+  if (
+    !request.headers
+      .get("Content-Type")
+      ?.toLowerCase()
+      .startsWith("application/json")
+  ) {
+    return json({
+      success: false,
+      error: "Content-Type must be application/json.",
+    }, 415);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in before subscribing.",
+    }, 401);
+  }
+
+  let body: Record<string, unknown>;
+
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return json({
+      success: false,
+      error: "Invalid JSON request.",
+    }, 400);
+  }
+
+  const priceId =
+    typeof body.priceId === "string" ? body.priceId : "";
+
+  if (!HEARTORA_STRIPE_PRICES.has(priceId)) {
+    return json({
+      success: false,
+      error: "Please select a valid Heartora subscription plan.",
+    }, 400);
+  }
+
+  const origin = new URL(request.url).origin;
+
+  const form = new URLSearchParams();
+
+  form.set("ui_mode", "embedded");
+  form.set("mode", "subscription");
+  form.set("line_items[0][price]", priceId);
+  form.set("line_items[0][quantity]", "1");
+  form.set("customer_email", user.email);
+  form.set("client_reference_id", user.id);
+  form.set("metadata[user_id]", user.id);
+  form.set("subscription_data[metadata][user_id]", user.id);
+  form.set(
+    "return_url",
+    `${origin}/premium?session_id={CHECKOUT_SESSION_ID}`,
+  );
+
+  try {
+    const stripeResponse = await fetch(
+      "https://api.stripe.com/v1/checkout/sessions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${env.STRIPE_SECRET_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form.toString(),
+      },
+    );
+
+    const stripeData = await stripeResponse.json() as {
+      id?: string;
+      client_secret?: string;
+      error?: {
+        message?: string;
+        type?: string;
+      };
+    };
+
+    if (
+      !stripeResponse.ok ||
+      typeof stripeData.client_secret !== "string"
+    ) {
+      console.error("Stripe checkout session creation failed:", {
+        status: stripeResponse.status,
+        type: stripeData.error?.type,
+      });
+
+      return json({
+        success: false,
+        error: "We couldn't start checkout. Please try again.",
+      }, 502);
+    }
+
+    return json({
+      success: true,
+      clientSecret: stripeData.client_secret,
+    });
+  } catch (error) {
+    console.error("Stripe checkout request failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to connect to the payment service.",
+    }, 502);
+  }
+                  }
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -699,7 +824,16 @@ export default {
         status: "online",
       });
     }
+    if (url.pathname === "/api/stripe/checkout") {
+      if (request.method !== "POST") {
+        return json({
+          success: false,
+          error: "Method not allowed.",
+        }, 405);
+      }
 
+      return handleCreateCheckout(request, env);
+    }
     if (url.pathname === "/api/db-health") {
       if (request.method !== "GET") {
         return json({ success: false, error: "Method not allowed" }, 405);
