@@ -348,7 +348,29 @@ async function currentUser(
 
   return session ?? null;
 }
+async function requireAdmin(
+  request: Request,
+  env: Env,
+): Promise<{
+  id: string;
+  email: string;
+  display_name: string;
+  country: string;
+} | null> {
+  const user = await currentUser(request, env);
 
+  if (!user) {
+    return null;
+  }
+
+  const adminEmail = env.ADMIN_EMAIL?.trim().toLowerCase();
+
+  if (!adminEmail || user.email.toLowerCase() !== adminEmail) {
+    return null;
+  }
+
+  return user;
+    }
 async function handleSignup(
   request: Request,
   env: Env,
