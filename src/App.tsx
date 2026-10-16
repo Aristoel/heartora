@@ -26,6 +26,91 @@ import {
   EmbeddedCheckout,
   EmbeddedCheckoutProvider,
 } from "@stripe/react-stripe-js";
+const stripePromise = loadStripe(
+  "pk_live_51UOZYkD4sEidTZkr6lcZuKxjYtLedLhN8QtNB3FVlLusNQLhTu3ap4dGmnbYGR09HvHrAo1lRV6jcv9u16XtdNrd00tTQPvOvx"
+);
+
+function HeartoraEmbeddedCheckout({
+  priceId,
+  onClose,
+}: {
+  priceId: string;
+  onClose: () => void;
+}) {
+  const fetchClientSecret = async (): Promise<string> => {
+    const response = await fetch("/api/stripe/checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({ priceId }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.clientSecret) {
+      throw new Error(
+        result.error || "Unable to start checkout."
+      );
+    }
+
+    return result.clientSecret;
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(0, 0, 0, 0.75)",
+        overflowY: "auto",
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 650,
+          margin: "40px auto",
+          background: "#ffffff",
+          color: "#1f2937",
+          borderRadius: 16,
+          padding: 20,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            display: "block",
+            marginLeft: "auto",
+            padding: "8px 14px",
+            borderRadius: 8,
+            border: "1px solid #d1d5db",
+            background: "#ffffff",
+            cursor: "pointer",
+          }}
+        >
+          Close ✕
+        </button>
+
+        <h2>Complete your Heartora subscription</h2>
+
+        <p>
+          Your payment form will appear below.
+        </p>
+
+        <EmbeddedCheckoutProvider
+          stripe={stripePromise}
+          options={{ fetchClientSecret }}
+        >
+          <EmbeddedCheckout />
+        </EmbeddedCheckoutProvider>
+      </div>
+    </div>
+  );
+}
 
 type Page =
   | "discover"
