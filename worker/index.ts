@@ -740,10 +740,13 @@ async function handleCreateCheckout(
       !stripeResponse.ok ||
       typeof stripeData.client_secret !== "string"
     ) {
-      console.error("Stripe checkout session creation failed:", {
-        status: stripeResponse.status,
-        type: stripeData.error?.type,
-      });
+      
+    console.error("Stripe checkout session creation failed:", {
+  status: stripeResponse.status,
+  type: stripeData.error?.type,
+  message: stripeData.error?.message,
+  param: (stripeData.error as { param?: string } | undefined)?.param,
+});
 
       return json({
         success: false,
