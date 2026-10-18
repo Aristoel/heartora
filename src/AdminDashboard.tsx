@@ -230,10 +230,12 @@ export default function AdminDashboard({
 
     try {
       const [statsResult, membersResult] = await Promise.all([
-        adminRequest("/api/admin/stats"),
-        adminRequest("/api/admin/members"),
-      ]);
-
+  adminRequest("/api/admin/stats"),
+  adminRequest(
+    `/api/admin/members?q=${encodeURIComponent(search)}`
+  ),
+]);
+        
       const statsData =
         statsResult.stats ??
         (statsResult.data as DashboardStats | undefined) ??
