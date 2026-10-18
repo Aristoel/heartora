@@ -509,7 +509,22 @@ export default function App() {
   const [postalCode, setPostalCode] = useState("");
   const [distance, setDistance] = useState("50");
   const [locationNotice, setLocationNotice] = useState("");
+const [discoveredMembers, setDiscoveredMembers] = useState<
+  {
+    id: string;
+    displayName: string;
+    country: string;
+    bio: string;
+    city: string;
+    profilePhotoUrl: string;
+    interests: string;
+  }[]
+>([]);
 
+const [discoveryLoading, setDiscoveryLoading] = useState(false);
+const [discoveryError, setDiscoveryError] = useState("");
+const [discoveryPage, setDiscoveryPage] = useState(1);
+const [discoveryTotalPages, setDiscoveryTotalPages] = useState(0);
   const [fullName, setFullName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
