@@ -499,7 +499,9 @@ function calculateAge(dateString: string): number {
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>("discover");
+  const [page, setPage] = useState<Page>(() =>
+  window.location.pathname === "/admin" ? "admin" : "discover"
+);
   const [checkoutPriceId, setCheckoutPriceId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
