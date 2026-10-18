@@ -1759,7 +1759,19 @@ navigate("discover");
     </main>
   );
     }
-
+if (page === "admin") {
+  return (
+    <AdminDashboard
+      onBack={() => {
+        window.history.pushState({}, "", "/");
+        navigate("discover");
+      }}
+      onSignout={() => {
+        void handleSignout();
+      }}
+    />
+  );
+}
   return (
     <div style={styles.app}>
       <header style={styles.header}>
