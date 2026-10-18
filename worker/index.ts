@@ -1364,16 +1364,24 @@ if (url.pathname === "/api/admin/stats") {
        FROM user_subscriptions
        WHERE status = 'active'`,
     ).first<{ total: number }>();
-
+    
+const newMembers = await env.DB.prepare(
+  `SELECT COUNT(*) AS total
+   FROM users
+   WHERE created_at >= datetime('now', '-30 days')`,
+).first<{ total: number }>();
+    
     return json({
-      success: true,
-      stats: {
-        totalMembers: members?.total ?? 0,
-        verifiedMembers: verified?.total ?? 0,
-        premiumSubscribers: premium?.total ?? 0,
-        activeSubscriptions: active?.total ?? 0,
-      },
-    });
+  success: true,
+  stats: {
+    totalMembers: members?.total ?? 0,
+    newMembers: newMembers?.total ?? 0,
+    verifiedMembers: verified?.total ?? 0,
+    premiumSubscribers: premium?.total ?? 0,
+    activeSubscriptions: active?.total ?? 0,
+  },
+});
+     
   } catch (error) {
     console.error("Admin statistics request failed:", error);
 
