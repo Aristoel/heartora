@@ -394,8 +394,9 @@ export default function AdminDashboard({
               {loading ? "…" : newMembers ?? "—"}
             </div>
             <div style={styles.muted}>
-              Registration count reported by the API
-            </div>
+  New registrations in the last 30 days
+</div>
+                
           </article>
 
           <article style={styles.card}>
