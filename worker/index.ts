@@ -1393,7 +1393,228 @@ export default {
         }, 500);
       }
       }
+    // HEARTORA: GET AND UPDATE MEMBER PROFILE
+    if (url.pathname === "/api/profile/me") {
+      if (request.method !== "GET" && request.method !== "POST") {
+        return json({
+          success: false,
+          error: "Method not allowed.",
+        }, 405);
+      }
 
+      if (
+        request.method === "POST" &&
+        !isSameOriginRequest(request)
+      ) {
+        return json({
+          success: false,
+          error: "Request origin rejected.",
+        }, 403);
+      }
+
+      try {
+        const user = await currentUser(request, env);
+
+        if (!user) {
+          return json({
+            success: false,
+            error: "Please sign in to access your profile.",
+          }, 401);
+        }
+
+        // Load the member's current profile.
+        if (request.method === "GET") {
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO member_profiles (user_id)
+             VALUES (?)`,
+          )
+            .bind(user.id)
+            .run();
+
+          const profile = await env.DB.prepare(
+            `SELECT
+               u.id,
+               u.display_name,
+               u.country,
+               mp.bio,
+               mp.city,
+               mp.profile_photo_url,
+               mp.interests,
+               mp.show_in_discovery,
+               mp.updated_at
+             FROM users u
+             JOIN member_profiles mp ON mp.user_id = u.id
+             WHERE u.id = ?
+             LIMIT 1`,
+          )
+            .bind(user.id)
+            .first<{
+              id: string;
+              display_name: string;
+              country: string;
+              bio: string;
+              city: string;
+              profile_photo_url: string;
+              interests: string;
+              show_in_discovery: number;
+              updated_at: string;
+            }>();
+
+          if (!profile) {
+            return json({
+              success: false,
+              error: "Profile not found.",
+            }, 404);
+          }
+
+          return json({
+            success: true,
+            profile: {
+              id: profile.id,
+              displayName: profile.display_name,
+              country: profile.country,
+              bio: profile.bio,
+              city: profile.city,
+              profilePhotoUrl: profile.profile_photo_url,
+              interests: profile.interests,
+              showInDiscovery: profile.show_in_discovery === 1,
+              updatedAt: profile.updated_at,
+            },
+          });
+        }
+
+        // Require JSON for profile updates.
+        if (
+          !request.headers
+            .get("Content-Type")
+            ?.toLowerCase()
+            .startsWith("application/json")
+        ) {
+          return json({
+            success: false,
+            error: "Content-Type must be application/json.",
+          }, 415);
+        }
+
+        let body: Record<string, unknown>;
+
+        try {
+          body = await request.json() as Record<string, unknown>;
+        } catch {
+          return json({
+            success: false,
+            error: "Invalid JSON request.",
+          }, 400);
+        }
+
+        const bio = typeof body.bio === "string"
+          ? body.bio.trim()
+          : "";
+
+        const city = typeof body.city === "string"
+          ? body.city.trim()
+          : "";
+
+        const interests = typeof body.interests === "string"
+          ? body.interests.trim()
+          : "";
+
+        const showInDiscovery = body.showInDiscovery;
+
+        if (
+          bio.length > 1000 ||
+          city.length > 100 ||
+          interests.length > 500 ||
+          typeof showInDiscovery !== "boolean"
+        ) {
+          return json({
+            success: false,
+            error: "Please check your profile details and try again.",
+          }, 400);
+        }
+
+        await env.DB.prepare(
+          `INSERT OR IGNORE INTO member_profiles (user_id)
+           VALUES (?)`,
+        )
+          .bind(user.id)
+          .run();
+
+        await env.DB.prepare(
+          `UPDATE member_profiles
+           SET bio = ?,
+               city = ?,
+               interests = ?,
+               show_in_discovery = ?,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = ?`,
+        )
+          .bind(
+            bio,
+            city,
+            interests,
+            showInDiscovery ? 1 : 0,
+            user.id,
+          )
+          .run();
+
+        const updated = await env.DB.prepare(
+          `SELECT
+             u.id,
+             u.display_name,
+             u.country,
+             mp.bio,
+             mp.city,
+             mp.profile_photo_url,
+             mp.interests,
+             mp.show_in_discovery,
+             mp.updated_at
+           FROM users u
+           JOIN member_profiles mp ON mp.user_id = u.id
+           WHERE u.id = ?
+           LIMIT 1`,
+        )
+          .bind(user.id)
+          .first<{
+            id: string;
+            display_name: string;
+            country: string;
+            bio: string;
+            city: string;
+            profile_photo_url: string;
+            interests: string;
+            show_in_discovery: number;
+            updated_at: string;
+          }>();
+
+        return json({
+          success: true,
+          message: "Your profile has been updated.",
+          profile: updated
+            ? {
+                id: updated.id,
+                displayName: updated.display_name,
+                country: updated.country,
+                bio: updated.bio,
+                city: updated.city,
+                profilePhotoUrl: updated.profile_photo_url,
+                interests: updated.interests,
+                showInDiscovery:
+                  updated.show_in_discovery === 1,
+                updatedAt: updated.updated_at,
+              }
+            : null,
+        });
+      } catch (error) {
+        console.error("Heartora profile request failed:", error);
+
+        return json({
+          success: false,
+          error: "Unable to load or update your profile.",
+        }, 500);
+      }
+          }
+    
     if (request.method === "OPTIONS") {
       if (!isSameOriginRequest(request)) {
         return json({ success: false, error: "Request origin rejected." }, 403);
