@@ -422,7 +422,64 @@ export default function AdminDashboard({
           <p style={styles.muted}>
             Member information returned by the protected admin endpoint.
           </p>
+<div
+  style={{
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    marginTop: 16,
+    marginBottom: 12,
+  }}
+>
+  <input
+    type="search"
+    value={searchInput}
+    onChange={(event) => setSearchInput(event.target.value)}
+    onKeyDown={(event) => {
+      if (event.key === "Enter") {
+        setSearch(searchInput.trim());
+        void loadDashboard(true);
+      }
+    }}
+    placeholder="Search by name or email..."
+    aria-label="Search members by name or email"
+    style={{
+      flex: "1 1 240px",
+      minWidth: 0,
+      padding: "12px 14px",
+      border: "1px solid #ead6e4",
+      borderRadius: 11,
+      fontSize: 14,
+      color: "#352438",
+      background: "#ffffff",
+    }}
+  />
 
+  <button
+    type="button"
+    style={styles.button}
+    disabled={loading || refreshing}
+    onClick={() => {
+      setSearch(searchInput.trim());
+      void loadDashboard(true);
+    }}
+  >
+    Search members
+  </button>
+
+  <button
+    type="button"
+    style={styles.button}
+    disabled={loading || refreshing || (!search && !searchInput)}
+    onClick={() => {
+      setSearch("");
+      setSearchInput("");
+      void loadDashboard(true);
+    }}
+  >
+    Clear
+  </button>
+</div>
           {loading ? (
             <p style={styles.muted}>Loading member records…</p>
           ) : members.length === 0 ? (
