@@ -26,6 +26,7 @@ import {
   EmbeddedCheckout,
   EmbeddedCheckoutProvider,
 } from "@stripe/react-stripe-js";
+import AdminDashboard from "./AdminDashboard";
 const stripePromise = loadStripe(
   "pk_live_51UOZYkD4sEidTZkr6lcZuKxjYtLedLhN8QtNB3FVlLusNQLhTu3ap4dGmnbYGR09HvHrAo1lRV6jcv9u16XtdNrd00tTQPvOvx"
 );
@@ -119,7 +120,8 @@ type Page =
   | "signup"
   | "signin"
   | "forgot"
-  | "premium";
+  | "premium"
+  | "admin";
 
 type Notice = {
   type: "success" | "error" | "info";
