@@ -440,10 +440,11 @@ export default function AdminDashboard({
     onChange={(event) => setSearchInput(event.target.value)}
     onKeyDown={(event) => {
       if (event.key === "Enter") {
-        setSearch(searchInput.trim());
-        void loadDashboard(true);
+  const term = searchInput.trim();
+  setSearch(term);
+  void loadDashboard(true, term);
       }
-    }}
+   }}
     placeholder="Search by name or email..."
     aria-label="Search members by name or email"
     style={{
