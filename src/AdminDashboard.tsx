@@ -463,9 +463,11 @@ export default function AdminDashboard({
     style={styles.button}
     disabled={loading || refreshing}
     onClick={() => {
-      setSearch(searchInput.trim());
-      void loadDashboard(true);
-    }}
+  const term = searchInput.trim();
+  setSearch(term);
+  void loadDashboard(true, term);
+}}
+        
   >
     Search members
   </button>
@@ -475,10 +477,11 @@ export default function AdminDashboard({
     style={styles.button}
     disabled={loading || refreshing || (!search && !searchInput)}
     onClick={() => {
-      setSearch("");
-      setSearchInput("");
-      void loadDashboard(true);
-    }}
+  setSearch("");
+  setSearchInput("");
+  void loadDashboard(true, "");
+}}
+                                           
   >
     Clear
   </button>
