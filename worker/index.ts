@@ -1284,6 +1284,115 @@ async function handleStripeWebhook(
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+        // HEARTORA MEMBER DISCOVERY
+    if (url.pathname === "/api/discovery/members") {
+      if (request.method !== "GET") {
+        return json({
+          success: false,
+          error: "Method not allowed.",
+        }, 405);
+      }
+
+      try {
+        const user = await currentUser(request, env);
+
+        if (!user) {
+          return json({
+            success: false,
+            error: "Please sign in to discover members.",
+          }, 401);
+        }
+
+        const country = (
+          url.searchParams.get("country") ?? ""
+        ).trim();
+
+        const pageValue = Number(
+          url.searchParams.get("page") ?? "1"
+        );
+
+        const page =
+          Number.isSafeInteger(pageValue) && pageValue > 0
+            ? Math.min(pageValue, 1000000)
+            : 1;
+
+        const limit = 24;
+        const offset = (page - 1) * limit;
+
+        let where = `
+          WHERE mp.show_in_discovery = 1
+          AND u.id <> ?
+        `;
+
+        const params: (string | number)[] = [user.id];
+
+        if (country && country.toLowerCase() !== "worldwide") {
+          where += " AND LOWER(u.country) = LOWER(?)";
+          params.push(country);
+        }
+
+        const count = await env.DB.prepare(`
+          SELECT COUNT(*) AS total
+          FROM users u
+          JOIN member_profiles mp ON mp.user_id = u.id
+          ${where}
+        `)
+          .bind(...params)
+          .first<{ total: number }>();
+
+        const result = await env.DB.prepare(`
+          SELECT
+            u.id,
+            u.display_name,
+            u.country,
+            mp.bio,
+            mp.city,
+            mp.profile_photo_url,
+            mp.interests
+          FROM users u
+          JOIN member_profiles mp ON mp.user_id = u.id
+          ${where}
+          ORDER BY mp.updated_at DESC
+          LIMIT ? OFFSET ?
+        `)
+          .bind(...params, limit, offset)
+          .all<{
+            id: string;
+            display_name: string;
+            country: string;
+            bio: string;
+            city: string;
+            profile_photo_url: string;
+            interests: string;
+          }>();
+
+        return json({
+          success: true,
+          members: (result.results ?? []).map((member) => ({
+            id: member.id,
+            displayName: member.display_name,
+            country: member.country,
+            bio: member.bio,
+            city: member.city,
+            profilePhotoUrl: member.profile_photo_url,
+            interests: member.interests,
+          })),
+          pagination: {
+            page,
+            limit,
+            total: count?.total ?? 0,
+            totalPages: Math.ceil((count?.total ?? 0) / limit),
+          },
+        });
+      } catch (error) {
+        console.error("Member discovery request failed:", error);
+
+        return json({
+          success: false,
+          error: "Unable to load members right now.",
+        }, 500);
+      }
+      }
 
     if (request.method === "OPTIONS") {
       if (!isSameOriginRequest(request)) {
