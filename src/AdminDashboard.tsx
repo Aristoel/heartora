@@ -219,7 +219,10 @@ export default function AdminDashboard({
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
 
-  async function loadDashboard(isRefresh = false) {
+  async function loadDashboard(
+  isRefresh = false,
+  searchTerm = search
+) {
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -232,7 +235,7 @@ export default function AdminDashboard({
       const [statsResult, membersResult] = await Promise.all([
   adminRequest("/api/admin/stats"),
   adminRequest(
-    `/api/admin/members?q=${encodeURIComponent(search)}`
+    `/api/admin/members?q=${encodeURIComponent(searchTerm)}`
   ),
 ]);
         
