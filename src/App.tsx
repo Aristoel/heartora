@@ -749,7 +749,58 @@ window.history.replaceState({}, "", "/");
 setPassword("");
 setConfirmPassword("");
 
+setDiscoveryError("");
+setDiscoveryLoading(true);
+setDiscoveryPage(1);
+setDiscoveredMembers([]);
+setLocationNotice("");
+
 navigate("discover");
+
+try {
+  const params = new URLSearchParams({
+    country: distance === "worldwide" ? "worldwide" : country.trim(),
+    page: "1",
+  });
+
+  const response = await fetch(
+    `/api/discovery/members?${params.toString()}`,
+    {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(
+      data.error || "Unable to load members right now.",
+    );
+  }
+
+  setDiscoveredMembers(data.members ?? []);
+  setDiscoveryTotalPages(data.pagination?.totalPages ?? 0);
+
+  const total = data.pagination?.total ?? 0;
+
+  setLocationNotice(
+    total > 0
+      ? `Found ${total} member${total === 1 ? "" : "s"}.`
+      : "No members are available to discover yet.",
+  );
+} catch (error) {
+  setDiscoveryError(
+    error instanceof Error
+      ? error.message
+      : "Unable to load members right now.",
+  );
+} finally {
+  setDiscoveryLoading(false);
+}
         
     } catch (error) {
       setAuthNotice({
