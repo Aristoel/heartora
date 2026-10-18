@@ -631,18 +631,16 @@ export default function App() {
       });
 
       if (result.user) {
-        setCurrentUser(result.user);
-      }
+  setCurrentUser(result.user);
+}
 
-      setPassword("");
-      setConfirmPassword("");
+setPassword("");
+setConfirmPassword("");
 
-      setAuthNotice({
-        type: "success",
-        message:
-          result.message ||
-          "Your account has been created and you are signed in.",
-      });
+setAuthNotice(null);
+setPage("discover");
+window.history.replaceState({}, "", "/");
+       
     } catch (error) {
       setAuthNotice({
         type: "error",
