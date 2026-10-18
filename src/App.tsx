@@ -565,19 +565,72 @@ const [discoveryTotalPages, setDiscoveryTotalPages] = useState(0);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function discoverMatches(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function discoverMatches(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
 
-    if (!country.trim() || !postalCode.trim()) {
-      setLocationNotice(
-        "Please select your country and enter your postal or ZIP code.",
+  if (!currentUser) {
+    setLocationNotice("Please sign in to discover members.");
+    navigate("signin");
+    return;
+  }
+
+  if (!country.trim() || !postalCode.trim()) {
+    setLocationNotice(
+      "Please select your country and enter your postal or ZIP code.",
+    );
+    return;
+  }
+
+  setDiscoveryLoading(true);
+  setDiscoveryError("");
+  setLocationNotice("");
+  setDiscoveredMembers([]);
+  setDiscoveryPage(1);
+
+  try {
+    const params = new URLSearchParams({
+      country: distance === "worldwide" ? "worldwide" : country.trim(),
+      page: "1",
+    });
+
+    const response = await fetch(
+      `/api/discovery/members?${params.toString()}`,
+      {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
+      },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.error || "Unable to load members right now.",
       );
-      return;
     }
 
+    setDiscoveredMembers(data.members ?? []);
+    setDiscoveryTotalPages(data.pagination?.totalPages ?? 0);
+
+    const total = data.pagination?.total ?? 0;
+
     setLocationNotice(
-      `Your discovery preferences are set to ${country}, ${postalCode.trim()}, within ${distance} miles. Matching results are not available yet.`,
+      total > 0
+        ? `Found ${total} member${total === 1 ? "" : "s"}.`
+        : "No members were found for this discovery selection yet.",
     );
+  } catch (error) {
+    setDiscoveryError(
+      error instanceof Error
+        ? error.message
+        : "Unable to load members right now.",
+    );
+  } finally {
+    setDiscoveryLoading(false);
+  }
   }
 
   async function handleSignup(event: FormEvent<HTMLFormElement>) {
