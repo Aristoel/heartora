@@ -216,6 +216,8 @@ export default function AdminDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
 
   async function loadDashboard(isRefresh = false) {
     if (isRefresh) {
