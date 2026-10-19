@@ -121,7 +121,8 @@ type Page =
   | "signin"
   | "forgot"
   | "premium"
-  | "admin";
+  | "admin"
+  | "profile";
 
 type Notice = {
   type: "success" | "error" | "info";
