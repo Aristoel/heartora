@@ -1789,6 +1789,127 @@ if (photoMatch) {
         }, 500);
       }
       }
+    // HEARTORA: VIEW ANOTHER MEMBER'S PROFILE
+const publicMemberMatch = url.pathname.match(
+  /^\/api\/members\/([0-9a-f-]{36})$/i,
+);
+
+if (publicMemberMatch) {
+  if (request.method !== "GET") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  try {
+    const viewer = await currentUser(request, env);
+
+    if (!viewer) {
+      return json({
+        success: false,
+        error: "Please sign in to view member profiles.",
+      }, 401);
+    }
+
+    const memberId = publicMemberMatch[1];
+
+    const member = await env.DB.prepare(`
+      SELECT
+        u.id,
+        u.display_name,
+        u.date_of_birth,
+        u.country,
+        mp.bio,
+        mp.city,
+        mp.interests,
+        mp.show_in_discovery
+      FROM users u
+      JOIN member_profiles mp ON mp.user_id = u.id
+      WHERE u.id = ?
+      LIMIT 1
+    `)
+      .bind(memberId)
+      .first<{
+        id: string;
+        display_name: string;
+        date_of_birth: string;
+        country: string;
+        bio: string;
+        city: string;
+        interests: string;
+        show_in_discovery: number;
+      }>();
+
+    if (!member) {
+      return json({
+        success: false,
+        error: "Member profile not found.",
+      }, 404);
+    }
+
+    // Only the profile owner or an authorized discovery viewer
+    // may access this profile.
+    if (
+      member.id !== viewer.id &&
+      member.show_in_discovery !== 1
+    ) {
+      return json({
+        success: false,
+        error: "This member's profile is not available.",
+      }, 404);
+    }
+
+    // Heartora is exclusively for adults aged 18 and over.
+    const age = calculateAge(member.date_of_birth);
+
+    if (age < 18) {
+      return json({
+        success: false,
+        error: "This member profile is unavailable.",
+      }, 404);
+    }
+
+    const photoResult = await env.DB.prepare(`
+      SELECT id, content_type, is_primary
+      FROM member_photos
+      WHERE user_id = ?
+      ORDER BY is_primary DESC, created_at DESC
+    `)
+      .bind(member.id)
+      .all<{
+        id: string;
+        content_type: string;
+        is_primary: number;
+      }>();
+
+    return json({
+      success: true,
+      profile: {
+        id: member.id,
+        displayName: member.display_name,
+        age,
+        country: member.country,
+        city: member.city ?? "",
+        bio: member.bio ?? "",
+        interests: member.interests ?? "",
+        photos: (photoResult.results ?? []).map((photo) => ({
+          id: photo.id,
+          url: `/api/profile/photos/${photo.id}`,
+          contentType: photo.content_type,
+          isPrimary: photo.is_primary === 1,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Public member profile request failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to load this member's profile.",
+    }, 500);
+  }
+      }
     // HEARTORA: GET AND UPDATE MEMBER PROFILE
     if (url.pathname === "/api/profile/me") {
       if (request.method !== "GET" && request.method !== "POST") {
