@@ -15,7 +15,7 @@ const SESSION_COOKIE = "__Host-heartora_session";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "https://heartora.jimdemare3.workers.dev",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Allow-Credentials": "true",
   "Access-Control-Max-Age": "86400",
@@ -1282,10 +1282,404 @@ async function handleStripeWebhook(
   }
       }
         
+async function handleProfilePhotos(
+  request: Request,
+  env: Env,
+  photoId?: string,
+): Promise<Response> {
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to manage your photos.",
+    }, 401);
+  }
+
+  if (
+    request.method !== "GET" &&
+    !isSameOriginRequest(request)
+  ) {
+    return json({
+      success: false,
+      error: "Request origin rejected.",
+    }, 403);
+  }
+
+  const MAX_PHOTOS = 8;
+  const MAX_SIZE = 5 * 1024 * 1024;
+
+  const allowedTypes = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ]);
+
+  try {
+    // VIEW A PHOTO
+    if (request.method === "GET" && photoId) {
+      const photo = await env.DB.prepare(`
+        SELECT
+          p.id,
+          p.user_id,
+          p.object_key,
+          p.content_type,
+          mp.show_in_discovery
+        FROM member_photos p
+        JOIN member_profiles mp ON mp.user_id = p.user_id
+        WHERE p.id = ?
+        LIMIT 1
+      `)
+        .bind(photoId)
+        .first<{
+          id: string;
+          user_id: string;
+          object_key: string;
+          content_type: string;
+          show_in_discovery: number;
+        }>();
+
+      if (
+        !photo ||
+        (
+          photo.user_id !== user.id &&
+          photo.show_in_discovery !== 1
+        )
+      ) {
+        return json({
+          success: false,
+          error: "Photo not found.",
+        }, 404);
+      }
+
+      const object = await env.PHOTOS.get(photo.object_key);
+
+      if (!object) {
+        return json({
+          success: false,
+          error: "Photo file not found.",
+        }, 404);
+      }
+
+      return new Response(object.body, {
+        headers: {
+          "Content-Type": photo.content_type,
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Security-Policy": "default-src 'none'",
+          "Content-Disposition": "inline",
+          ...CORS_HEADERS,
+        },
+      });
+    }
+
+    // LIST THE SIGNED-IN MEMBER'S PHOTOS
+    if (request.method === "GET") {
+      const result = await env.DB.prepare(`
+        SELECT id, content_type, size_bytes, is_primary, created_at
+        FROM member_photos
+        WHERE user_id = ?
+        ORDER BY is_primary DESC, created_at DESC
+      `)
+        .bind(user.id)
+        .all<{
+          id: string;
+          content_type: string;
+          size_bytes: number;
+          is_primary: number;
+          created_at: string;
+        }>();
+
+      return json({
+        success: true,
+        photos: (result.results ?? []).map((photo) => ({
+          id: photo.id,
+          url: `/api/profile/photos/${photo.id}`,
+          contentType: photo.content_type,
+          sizeBytes: photo.size_bytes,
+          isPrimary: photo.is_primary === 1,
+          createdAt: photo.created_at,
+        })),
+      });
+    }
+
+    // UPLOAD A PHOTO
+    if (request.method === "POST" && !photoId) {
+      const contentType = request.headers.get("Content-Type") ?? "";
+
+      if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
+        return json({
+          success: false,
+          error: "Upload must use multipart/form-data.",
+        }, 415);
+      }
+
+      const form = await request.formData();
+      const file = form.get("photo");
+
+      if (!(file instanceof File) || file.size === 0) {
+        return json({
+          success: false,
+          error: "Please select a photo to upload.",
+        }, 400);
+      }
+
+      if (file.size > MAX_SIZE) {
+        return json({
+          success: false,
+          error: "Each photo must be 5 MB or smaller.",
+        }, 413);
+      }
+
+      if (!allowedTypes.has(file.type.toLowerCase())) {
+        return json({
+          success: false,
+          error: "Use a JPEG, PNG, or WebP image.",
+        }, 415);
+      }
+
+      const existing = await env.DB.prepare(`
+        SELECT COUNT(*) AS total
+        FROM member_photos
+        WHERE user_id = ?
+      `)
+        .bind(user.id)
+        .first<{ total: number }>();
+
+      if ((existing?.total ?? 0) >= MAX_PHOTOS) {
+        return json({
+          success: false,
+          error: "You can upload up to 8 profile photos.",
+        }, 400);
+      }
+
+      const bytes = new Uint8Array(await file.arrayBuffer());
+
+      // Verify the file signature instead of trusting its filename.
+      const isJpeg =
+        file.type === "image/jpeg" &&
+        bytes.length >= 3 &&
+        bytes[0] === 0xff &&
+        bytes[1] === 0xd8 &&
+        bytes[2] === 0xff;
+
+      const isPng =
+        file.type === "image/png" &&
+        bytes.length >= 8 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47 &&
+        bytes[4] === 0x0d &&
+        bytes[5] === 0x0a &&
+        bytes[6] === 0x1a &&
+        bytes[7] === 0x0a;
+
+      const isWebp =
+        file.type === "image/webp" &&
+        bytes.length >= 12 &&
+        String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
+        String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+
+      if (!isJpeg && !isPng && !isWebp) {
+        return json({
+          success: false,
+          error: "The selected file is not a valid supported image.",
+        }, 400);
+      }
+
+      await env.DB.prepare(`
+        INSERT OR IGNORE INTO member_profiles (user_id)
+        VALUES (?)
+      `)
+        .bind(user.id)
+        .run();
+
+      const photoIdNew = randomId();
+      const objectKey = `users/${user.id}/${photoIdNew}`;
+      const isPrimary = (existing?.total ?? 0) === 0;
+
+      // Store the image in private R2 storage.
+      await env.PHOTOS.put(objectKey, bytes, {
+        httpMetadata: {
+          contentType: file.type.toLowerCase(),
+        },
+      });
+
+      try {
+        await env.DB.prepare(`
+          INSERT INTO member_photos (
+            id,
+            user_id,
+            object_key,
+            content_type,
+            size_bytes,
+            is_primary
+          )
+          VALUES (?, ?, ?, ?, ?, ?)
+        `)
+          .bind(
+            photoIdNew,
+            user.id,
+            objectKey,
+            file.type.toLowerCase(),
+            file.size,
+            isPrimary ? 1 : 0,
+          )
+          .run();
+
+        if (isPrimary) {
+          await env.DB.prepare(`
+            UPDATE member_profiles
+            SET profile_photo_url = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+          `)
+            .bind(`/api/profile/photos/${photoIdNew}`, user.id)
+            .run();
+        }
+      } catch (error) {
+        // Avoid leaving an untracked object if the database write fails.
+        await env.PHOTOS.delete(objectKey);
+        throw error;
+      }
+
+      return json({
+        success: true,
+        message: "Photo uploaded successfully.",
+        photo: {
+          id: photoIdNew,
+          url: `/api/profile/photos/${photoIdNew}`,
+          contentType: file.type.toLowerCase(),
+          sizeBytes: file.size,
+          isPrimary,
+        },
+      }, 201);
+    }
+
+    // DELETE A PHOTO OWNED BY THE SIGNED-IN MEMBER
+    if (request.method === "DELETE" && photoId) {
+      const photo = await env.DB.prepare(`
+        SELECT id, object_key, is_primary
+        FROM member_photos
+        WHERE id = ? AND user_id = ?
+        LIMIT 1
+      `)
+        .bind(photoId, user.id)
+        .first<{
+          id: string;
+          object_key: string;
+          is_primary: number;
+        }>();
+
+      if (!photo) {
+        return json({
+          success: false,
+          error: "Photo not found.",
+        }, 404);
+      }
+
+      await env.PHOTOS.delete(photo.object_key);
+
+      await env.DB.prepare(`
+        DELETE FROM member_photos
+        WHERE id = ? AND user_id = ?
+      `)
+        .bind(photoId, user.id)
+        .run();
+
+      if (photo.is_primary === 1) {
+        const nextPhoto = await env.DB.prepare(`
+          SELECT id
+          FROM member_photos
+          WHERE user_id = ?
+          ORDER BY created_at DESC
+          LIMIT 1
+        `)
+          .bind(user.id)
+          .first<{ id: string }>();
+
+        if (nextPhoto) {
+          await env.DB.prepare(`
+            UPDATE member_photos
+            SET is_primary = CASE WHEN id = ? THEN 1 ELSE 0 END
+            WHERE user_id = ?
+          `)
+            .bind(nextPhoto.id, user.id)
+            .run();
+
+          await env.DB.prepare(`
+            UPDATE member_profiles
+            SET profile_photo_url = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+          `)
+            .bind(`/api/profile/photos/${nextPhoto.id}`, user.id)
+            .run();
+        } else {
+          await env.DB.prepare(`
+            UPDATE member_profiles
+            SET profile_photo_url = '',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+          `)
+            .bind(user.id)
+            .run();
+        }
+      }
+
+      return json({
+        success: true,
+        message: "Photo deleted successfully.",
+      });
+    }
+
+    return json({
+      success: false,
+      error: "Photo endpoint or method not supported.",
+    }, 405);
+  } catch (error) {
+    console.error("Heartora photo management failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to manage photos right now. Please try again.",
+    }, 500);
+  }
+          }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    // HEARTORA MEMBER PHOTO MANAGEMENT
+if (url.pathname === "/api/profile/photos") {
+  if (request.method !== "GET" && request.method !== "POST") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  return handleProfilePhotos(request, env);
+}
+
+const photoMatch = url.pathname.match(
+  /^\/api\/profile\/photos\/([0-9a-f-]{36})$/i,
+);
+
+if (photoMatch) {
+  if (
+    request.method !== "GET" &&
+    request.method !== "DELETE"
+  ) {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  return handleProfilePhotos(request, env, photoMatch[1]);
+}
         // HEARTORA MEMBER DISCOVERY
     if (url.pathname === "/api/discovery/members") {
       if (request.method !== "GET") {
