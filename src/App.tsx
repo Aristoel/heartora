@@ -20,6 +20,11 @@ import {
   UserRound,
   CalendarDays,
   LogOut,
+  Camera,
+  Trash2,
+  Save,
+  LoaderCircle,
+  ImagePlus,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -538,6 +543,31 @@ const [discoveryTotalPages, setDiscoveryTotalPages] = useState(0);
 
   const [authNotice, setAuthNotice] = useState<Notice | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+    // HEARTORA MEMBER PROFILE
+  const [profileBio, setProfileBio] = useState("");
+  const [profileCity, setProfileCity] = useState("");
+  const [profileInterests, setProfileInterests] = useState("");
+  const [profileVisible, setProfileVisible] = useState(false);
+
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileNotice, setProfileNotice] = useState<Notice | null>(null);
+
+  // HEARTORA MEMBER PHOTOS
+  const [profilePhotos, setProfilePhotos] = useState<
+    {
+      id: string;
+      url?: string;
+      photoUrl?: string;
+      profilePhotoUrl?: string;
+      isPrimary?: number;
+      is_primary?: number;
+    }[]
+  >([]);
+
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
@@ -565,7 +595,265 @@ const [discoveryTotalPages, setDiscoveryTotalPages] = useState(0);
     setLocationNotice("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  // Load the signed-in member's profile and photos.
+  async function loadMemberProfile() {
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
 
+    setProfileLoading(true);
+    setPhotosLoading(true);
+    setProfileNotice(null);
+
+    try {
+      const profileResponse = await fetch("/api/profile/me", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      const profileData = await profileResponse.json();
+
+      if (!profileResponse.ok || !profileData.success) {
+        throw new Error(
+          profileData.error || "Unable to load your profile.",
+        );
+      }
+
+      const profile = profileData.profile ?? profileData;
+
+      setProfileBio(profile.bio ?? "");
+      setProfileCity(profile.city ?? "");
+      setProfileInterests(profile.interests ?? "");
+      setProfileVisible(
+        profile.showInDiscovery === true ||
+          profile.showInDiscovery === 1 ||
+          profile.show_in_discovery === 1,
+      );
+    } catch (error) {
+      setProfileNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to load your profile.",
+      });
+    } finally {
+      setProfileLoading(false);
+    }
+
+    try {
+      const photoResponse = await fetch("/api/profile/photos", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      const photoData = await photoResponse.json();
+
+      if (!photoResponse.ok || !photoData.success) {
+        throw new Error(
+          photoData.error || "Unable to load your photos.",
+        );
+      }
+
+      setProfilePhotos(
+        Array.isArray(photoData.photos) ? photoData.photos : [],
+      );
+    } catch (error) {
+      setProfileNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to load your photos.",
+      });
+    } finally {
+      setPhotosLoading(false);
+    }
+  }
+
+  // Save profile details.
+  async function saveMemberProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileNotice(null);
+
+    try {
+      const result = await authRequest("/api/profile/me", "POST", {
+        bio: profileBio.trim(),
+        city: profileCity.trim(),
+        interests: profileInterests.trim(),
+        showInDiscovery: profileVisible,
+      });
+
+      setProfileNotice({
+        type: "success",
+        message: result.message || "Your profile has been saved.",
+      });
+    } catch (error) {
+      setProfileNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to save your profile.",
+      });
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  // Upload a profile photo to private Cloudflare R2 storage.
+  async function uploadMemberPhoto(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    const form = event.currentTarget;
+    const input = form.elements.namedItem("photo");
+
+    if (!(input instanceof HTMLInputElement) || !input.files?.length) {
+      setProfileNotice({
+        type: "error",
+        message: "Please select a photo first.",
+      });
+      return;
+    }
+
+    const file = input.files[0];
+
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileNotice({
+        type: "error",
+        message: "Each photo must be 5 MB or smaller.",
+      });
+      return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setProfileNotice({
+        type: "error",
+        message: "Please choose a JPEG, PNG, or WebP image.",
+      });
+      return;
+    }
+
+    if (profilePhotos.length >= 8) {
+      setProfileNotice({
+        type: "error",
+        message: "You can upload up to 8 profile photos.",
+      });
+      return;
+    }
+
+    setPhotoUploading(true);
+    setProfileNotice(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+
+      const response = await fetch("/api/profile/photos", {
+        method: "POST",
+        credentials: "same-origin",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Unable to upload this photo.");
+      }
+
+      input.value = "";
+
+      await loadMemberProfile();
+
+      setProfileNotice({
+        type: "success",
+        message: "Your photo has been uploaded successfully.",
+      });
+    } catch (error) {
+      setProfileNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to upload this photo.",
+      });
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  // Delete one of the signed-in member's photos.
+  async function deleteMemberPhoto(photoId: string) {
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this photo?")) {
+      return;
+    }
+
+    setDeletingPhotoId(photoId);
+    setProfileNotice(null);
+
+    try {
+      const response = await fetch(
+        `/api/profile/photos/${encodeURIComponent(photoId)}`,
+        {
+          method: "DELETE",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Unable to delete this photo.");
+      }
+
+      await loadMemberProfile();
+
+      setProfileNotice({
+        type: "success",
+        message: "Your photo has been deleted.",
+      });
+    } catch (error) {
+      setProfileNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to delete this photo.",
+      });
+    } finally {
+      setDeletingPhotoId(null);
+    }
+  }
+  
   async function discoverMatches(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
 
