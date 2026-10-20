@@ -2153,6 +2153,367 @@ try {
       </main>
     );
   }
+    function renderProfile() {
+    if (!currentUser) {
+      return (
+        <main style={styles.main}>
+          <section style={styles.panel}>
+            <h1 style={styles.sectionTitle}>Your profile</h1>
+            <p style={styles.muted}>
+              Please sign in to manage your Heartora profile and photos.
+            </p>
+            <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={() => navigate("signin")}
+            >
+              Sign in
+            </button>
+          </section>
+        </main>
+      );
+    }
+
+    return (
+      <main style={styles.main}>
+        <section style={styles.hero}>
+          <div style={styles.badge}>
+            <UserRound size={15} />
+            MEMBER PROFILE
+          </div>
+
+          <h1 style={styles.heroTitle}>
+            Your Heartora <span style={styles.accent}>profile.</span>
+          </h1>
+
+          <p style={styles.paragraph}>
+            Introduce yourself, share your interests, and choose whether
+            other Heartora members can discover your profile.
+          </p>
+        </section>
+
+        {profileNotice && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              ...styles.notice,
+              background:
+                profileNotice.type === "success"
+                  ? "#eaf8ef"
+                  : profileNotice.type === "error"
+                    ? "#fff0f0"
+                    : "#f0f4ff",
+              color:
+                profileNotice.type === "success"
+                  ? "#236a3b"
+                  : profileNotice.type === "error"
+                    ? "#a42b3b"
+                    : "#38558c",
+              border: "1px solid #ead5e2",
+            }}
+          >
+            {profileNotice.message}
+          </div>
+        )}
+
+        <section style={styles.section}>
+          <div style={styles.card}>
+            <h2 style={styles.sectionTitle}>Your account</h2>
+
+            <p style={styles.muted}>
+              <strong>Display name:</strong> {currentUser.displayName}
+            </p>
+
+            <p style={styles.muted}>
+              <strong>Email:</strong> {currentUser.email}
+            </p>
+
+            <p style={styles.muted}>
+              <strong>Country:</strong> {currentUser.country}
+            </p>
+
+            <p style={styles.muted}>
+              To protect your account, your email address is not displayed
+              on your public discovery profile.
+            </p>
+          </div>
+        </section>
+
+        <section style={styles.section}>
+          <div style={styles.card}>
+            <h2 style={styles.sectionTitle}>About you</h2>
+
+            {profileLoading ? (
+              <p style={styles.muted}>Loading your profile…</p>
+            ) : (
+              <form onSubmit={saveMemberProfile}>
+                <div style={styles.inputGroup}>
+                  <label htmlFor="profileBio" style={styles.label}>
+                    About me
+                  </label>
+
+                  <textarea
+                    id="profileBio"
+                    value={profileBio}
+                    onChange={(event) => setProfileBio(event.target.value)}
+                    maxLength={1000}
+                    rows={5}
+                    placeholder="Tell other members a little about yourself..."
+                    style={{
+                      ...styles.plainInput,
+                      resize: "vertical",
+                      lineHeight: 1.7,
+                    }}
+                  />
+
+                  <p style={styles.muted}>
+                    {profileBio.length}/1000 characters
+                  </p>
+                </div>
+
+                <div style={styles.inputGroup}>
+                  <label htmlFor="profileCity" style={styles.label}>
+                    City or town
+                  </label>
+
+                  <input
+                    id="profileCity"
+                    value={profileCity}
+                    onChange={(event) => setProfileCity(event.target.value)}
+                    maxLength={100}
+                    placeholder="Your city or town"
+                    style={styles.plainInput}
+                  />
+                </div>
+
+                <div style={styles.inputGroup}>
+                  <label htmlFor="profileInterests" style={styles.label}>
+                    Interests
+                  </label>
+
+                  <textarea
+                    id="profileInterests"
+                    value={profileInterests}
+                    onChange={(event) =>
+                      setProfileInterests(event.target.value)
+                    }
+                    maxLength={500}
+                    rows={3}
+                    placeholder="Music, travelling, cooking, movies..."
+                    style={{
+                      ...styles.plainInput,
+                      resize: "vertical",
+                      lineHeight: 1.7,
+                    }}
+                  />
+
+                  <p style={styles.muted}>
+                    Separate your interests with commas.
+                  </p>
+                </div>
+
+                <label style={styles.checkboxRow}>
+                  <input
+                    type="checkbox"
+                    checked={profileVisible}
+                    onChange={(event) =>
+                      setProfileVisible(event.target.checked)
+                    }
+                  />
+
+                  <span>
+                    <strong>Show my profile in discovery</strong>
+                    <br />
+                    When enabled, other eligible members may discover your
+                    profile. Turn this off to hide it from discovery.
+                  </span>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={profileSaving || profileLoading}
+                  style={{
+                    ...styles.primaryButton,
+                    marginTop: 22,
+                    opacity: profileSaving ? 0.7 : 1,
+                  }}
+                >
+                  {profileSaving ? (
+                    <LoaderCircle size={17} />
+                  ) : (
+                    <Save size={17} />
+                  )}
+
+                  {profileSaving ? "Saving profile…" : "Save profile"}
+                </button>
+              </form>
+            )}
+          </div>
+        </section>
+
+        <section style={styles.section}>
+          <div style={styles.card}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={styles.iconBox}>
+                <Camera size={23} />
+              </div>
+
+              <div>
+                <h2 style={{ ...styles.sectionTitle, marginBottom: 4 }}>
+                  Your photos
+                </h2>
+
+                <p style={styles.muted}>
+                  Upload up to 8 JPEG, PNG, or WebP photos. Maximum 5 MB
+                  per photo.
+                </p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={uploadMemberPhoto}
+              style={{ marginTop: 22 }}
+            >
+              <div style={styles.inputGroup}>
+                <label htmlFor="memberPhoto" style={styles.label}>
+                  Choose a photo
+                </label>
+
+                <input
+                  id="memberPhoto"
+                  name="photo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  required
+                  disabled={photoUploading || profilePhotos.length >= 8}
+                  style={{
+                    ...styles.plainInput,
+                    padding: 10,
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={photoUploading || profilePhotos.length >= 8}
+                style={{
+                  ...styles.primaryButton,
+                  marginTop: 14,
+                  opacity: photoUploading ? 0.7 : 1,
+                }}
+              >
+                {photoUploading ? (
+                  <LoaderCircle size={17} />
+                ) : (
+                  <ImagePlus size={17} />
+                )}
+
+                {photoUploading ? "Uploading photo…" : "Upload photo"}
+              </button>
+            </form>
+
+            <p style={styles.muted}>
+              {profilePhotos.length} of 8 photos uploaded.
+            </p>
+
+            {photosLoading ? (
+              <p style={styles.muted}>Loading your photos…</p>
+            ) : profilePhotos.length === 0 ? (
+              <div
+                style={{
+                  ...styles.notice,
+                  background: "#f8eff7",
+                  color: "#78315f",
+                  border: "1px solid #edd7e7",
+                }}
+              >
+                You have not uploaded any photos yet. Your first uploaded
+                photo will automatically become your primary profile photo.
+              </div>
+            ) : (
+              <div style={styles.grid}>
+                {profilePhotos.map((photo) => {
+                  const photoUrl =
+                    photo.url ||
+                    photo.photoUrl ||
+                    photo.profilePhotoUrl ||
+                    `/api/profile/photos/${encodeURIComponent(photo.id)}`;
+
+                  const isPrimary =
+                    photo.isPrimary === true ||
+                    photo.isPrimary === 1 ||
+                    photo.is_primary === 1;
+
+                  return (
+                    <article key={photo.id} style={styles.card}>
+                      <img
+                        src={photoUrl}
+                        alt="Your Heartora profile"
+                        loading="lazy"
+                        style={{
+                          width: "100%",
+                          height: 230,
+                          objectFit: "cover",
+                          borderRadius: 14,
+                          background: "#f8eff7",
+                        }}
+                      />
+
+                      {isPrimary && (
+                        <div
+                          style={{
+                            ...styles.badge,
+                            marginTop: 12,
+                          }}
+                        >
+                          <Heart size={14} fill="currentColor" />
+                          Primary photo
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={deletingPhotoId === photo.id}
+                        onClick={() => void deleteMemberPhoto(photo.id)}
+                        style={{
+                          ...styles.secondaryButton,
+                          width: "100%",
+                          marginTop: 12,
+                          color: "#a42b3b",
+                        }}
+                      >
+                        {deletingPhotoId === photo.id ? (
+                          <LoaderCircle size={16} />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+
+                        {deletingPhotoId === photo.id
+                          ? "Deleting…"
+                          : "Delete photo"}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div style={{ ...styles.buttonRow, justifyContent: "center" }}>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={() => navigate("discover")}
+          >
+            <ArrowLeft size={17} />
+            Back to Discover
+          </button>
+        </div>
+      </main>
+    );
+          }
   function renderPremium() {
   const plans = [
     {
@@ -2430,6 +2791,7 @@ if (page === "admin") {
 {page === "about" && renderAbout()}
 {page === "safety" && renderSafety()}
 {page === "premium" && renderPremium()}
+{page === "profile" && renderProfile()}
 
 {(page === "signup" ||
   page === "signin" ||
@@ -2472,6 +2834,19 @@ if (page === "admin") {
             >
               Safety
             </button>
+                  {currentUser && (
+        <button
+          type="button"
+          style={styles.navButton}
+          onClick={() => {
+            navigate("profile");
+            void loadMemberProfile();
+          }}
+        >
+          <UserRound size={15} />
+          My Profile
+        </button>
+      )}
             <button
   type="button"
   onClick={() => navigate("premium")}
