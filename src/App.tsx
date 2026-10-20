@@ -2441,10 +2441,9 @@ try {
                     `/api/profile/photos/${encodeURIComponent(photo.id)}`;
 
                   const isPrimary =
-                    photo.isPrimary === true ||
-                    photo.isPrimary === 1 ||
-                    photo.is_primary === 1;
-
+  photo.isPrimary === 1 ||
+  photo.is_primary === 1;
+                   
                   return (
                     <article key={photo.id} style={styles.card}>
                       <img
