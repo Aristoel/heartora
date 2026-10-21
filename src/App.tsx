@@ -681,7 +681,7 @@ const [messagingNotice, setMessagingNotice] =
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
-  useEffect(() => {
+    useEffect(() => {
     let active = true;
 
     authRequest("/api/auth/me", "GET")
@@ -693,7 +693,13 @@ const [messagingNotice, setMessagingNotice] =
       .catch(() => {
         // A visitor without an active session can still browse Heartora.
       });
-      // HEARTORA: LOAD NOTIFICATIONS WHEN SIGNED IN
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // HEARTORA: LOAD NOTIFICATIONS WHEN SIGNED IN
   useEffect(() => {
     if (currentUser) {
       void loadNotifications();
@@ -703,11 +709,7 @@ const [messagingNotice, setMessagingNotice] =
       setNotificationsOpen(false);
     }
   }, [currentUser]);
-
-    return () => {
-      active = false;
-    };
-  }, []);
+          
     // HEARTORA: LOAD MEMBER NOTIFICATIONS
   async function loadNotifications() {
     if (!currentUser) {
