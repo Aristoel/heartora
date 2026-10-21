@@ -1025,6 +1025,51 @@ const [messagingNotice, setMessagingNotice] =
     await loadMessages(conversationId);
   }
 
+    // HEARTORA: OPEN A NOTIFICATION
+  async function handleNotificationClick(
+    notification: (typeof notifications)[number]
+  ) {
+    setNotificationsOpen(false);
+    setNotificationError("");
+
+    if (!notification.isRead) {
+      await markNotificationRead(notification.id);
+    }
+
+    if (notification.type === "message") {
+      if (notification.relatedId) {
+        await openConversation(notification.relatedId);
+      } else {
+        navigate("inbox");
+      }
+
+      return;
+    }
+
+    if (
+      notification.type === "like" ||
+      notification.type === "match" ||
+      notification.type === "profile_view"
+    ) {
+      if (notification.actorId) {
+        try {
+          await loadMemberProfile(notification.actorId);
+        } catch {
+          setNotificationError(
+            "Unable to open this member's profile."
+          );
+        }
+      }
+
+      return;
+    }
+
+    // Support messages and website announcements remain
+    // in the notification panel rather than opening a conversation.
+    setSelectedNotificationId(notification.id);
+    setNotificationsOpen(true);
+  }
+  
   // HEARTORA: START A PRIVATE CONVERSATION
   async function startConversation(memberId: string) {
     if (!currentUser) {
