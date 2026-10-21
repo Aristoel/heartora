@@ -1089,7 +1089,7 @@ const [messagingNotice, setMessagingNotice] =
     } finally {
       setMemberActionLoading(false);
     }
-        }
+   }
    
   // Load the signed-in member's profile and photos.
   async function loadMemberProfile() {
