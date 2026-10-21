@@ -2096,12 +2096,185 @@ async function handleConversationMessages(
     }, 500);
   }
       }
+// HEARTORA: MEMBER MESSAGING INBOX
+async function handleMessageInbox(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (request.method !== "GET") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to view your inbox.",
+    }, 401);
+  }
+
+  try {
+    // Only adults may access private messaging.
+    const account = await env.DB.prepare(`
+      SELECT date_of_birth
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(user.id)
+      .first<{ date_of_birth: string }>();
+
+    if (!account || calculateAge(account.date_of_birth) < 18) {
+      return json({
+        success: false,
+        error: "Messaging is available to adults aged 18 and older.",
+      }, 403);
+    }
+
+    const result = await env.DB.prepare(`
+      SELECT
+        c.id AS conversation_id,
+        c.updated_at AS conversation_updated_at,
+        other.id AS member_id,
+        other.display_name AS member_display_name,
+        other.country AS member_country,
+        mp.city AS member_city,
+        mp.bio AS member_bio,
+        mp.profile_photo_url AS member_profile_photo_url,
+        (
+          SELECT m.id
+          FROM member_messages m
+          WHERE m.conversation_id = c.id
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT 1
+        ) AS last_message_id,
+        (
+          SELECT m.body
+          FROM member_messages m
+          WHERE m.conversation_id = c.id
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT 1
+        ) AS last_message_body,
+        (
+          SELECT m.sender_id
+          FROM member_messages m
+          WHERE m.conversation_id = c.id
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT 1
+        ) AS last_message_sender_id,
+        (
+          SELECT m.created_at
+          FROM member_messages m
+          WHERE m.conversation_id = c.id
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT 1
+        ) AS last_message_created_at,
+        (
+          SELECT COUNT(*)
+          FROM member_messages unread
+          WHERE unread.conversation_id = c.id
+            AND unread.sender_id <> ?
+            AND unread.read_at IS NULL
+        ) AS unread_count
+      FROM member_conversations c
+      JOIN member_conversation_participants mine
+        ON mine.conversation_id = c.id
+       AND mine.user_id = ?
+      JOIN member_conversation_participants theirs
+        ON theirs.conversation_id = c.id
+       AND theirs.user_id <> ?
+      JOIN users other
+        ON other.id = theirs.user_id
+      JOIN member_profiles mp
+        ON mp.user_id = other.id
+      WHERE
+        NOT EXISTS (
+          SELECT 1
+          FROM member_blocks b
+          WHERE
+            (b.blocker_id = ? AND b.blocked_id = other.id)
+            OR
+            (b.blocker_id = other.id AND b.blocked_id = ?)
+        )
+        AND CAST(
+          (julianday('now') - julianday(other.date_of_birth)) / 365.2425
+          AS INTEGER
+        ) >= 18
+      ORDER BY
+        COALESCE(last_message_created_at, c.updated_at) DESC,
+        c.id DESC
+      LIMIT 100
+    `)
+      .bind(
+        user.id,
+        user.id,
+        user.id,
+        user.id,
+        user.id,
+      )
+      .all<{
+        conversation_id: string;
+        conversation_updated_at: string;
+        member_id: string;
+        member_display_name: string;
+        member_country: string;
+        member_city: string | null;
+        member_bio: string | null;
+        member_profile_photo_url: string | null;
+        last_message_id: string | null;
+        last_message_body: string | null;
+        last_message_sender_id: string | null;
+        last_message_created_at: string | null;
+        unread_count: number;
+      }>();
+
+    return json({
+      success: true,
+      conversations: (result.results || []).map((item) => ({
+        id: item.conversation_id,
+        updatedAt: item.conversation_updated_at,
+        member: {
+          id: item.member_id,
+          displayName: item.member_display_name,
+          country: item.member_country,
+          city: item.member_city,
+          bio: item.member_bio,
+          profilePhotoUrl: item.member_profile_photo_url,
+        },
+        lastMessage: item.last_message_id
+          ? {
+              id: item.last_message_id,
+              body: item.last_message_body,
+              senderId: item.last_message_sender_id,
+              createdAt: item.last_message_created_at,
+            }
+          : null,
+        unreadCount: Number(item.unread_count || 0),
+      })),
+    });
+  } catch (error) {
+    console.error("Heartora inbox load failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to load your inbox right now.",
+    }, 500);
+  }
+        }
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     // HEARTORA: PRIVATE MESSAGING ROUTES
 if (url.pathname === "/api/messages/conversations") {
   return handleCreateConversation(request, env);
+}
+    // HEARTORA: MEMBER INBOX ROUTE
+if (url.pathname === "/api/messages/inbox") {
+  return handleMessageInbox(request, env);
 }
     // HEARTORA: READ OR SEND MESSAGES IN A CONVERSATION
 const conversationMessagesMatch = url.pathname.match(
