@@ -2265,6 +2265,264 @@ async function handleMessageInbox(
     }, 500);
   }
         }
+// HEARTORA: BLOCK A MEMBER
+async function handleBlockMember(
+  request: Request,
+  env: Env,
+  memberId: string,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  if (!isSameOriginRequest(request)) {
+    return json({
+      success: false,
+      error: "Request origin rejected.",
+    }, 403);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to block a member.",
+    }, 401);
+  }
+
+  if (
+    !/^[0-9a-f-]{36}$/i.test(memberId) ||
+    memberId === user.id
+  ) {
+    return json({
+      success: false,
+      error: "Please select a valid member.",
+    }, 400);
+  }
+
+  try {
+    const account = await env.DB.prepare(`
+      SELECT date_of_birth
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(user.id)
+      .first<{ date_of_birth: string }>();
+
+    if (!account || calculateAge(account.date_of_birth) < 18) {
+      return json({
+        success: false,
+        error: "This feature is available to adults aged 18 and older.",
+      }, 403);
+    }
+
+    const target = await env.DB.prepare(`
+      SELECT id
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(memberId)
+      .first<{ id: string }>();
+
+    if (!target) {
+      return json({
+        success: false,
+        error: "Member not found.",
+      }, 404);
+    }
+
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO member_blocks
+        (blocker_id, blocked_id)
+      VALUES (?, ?)
+    `)
+      .bind(user.id, memberId)
+      .run();
+
+    return json({
+      success: true,
+      message: "This member has been blocked.",
+    });
+  } catch (error) {
+    console.error("Heartora block member failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to block this member right now.",
+    }, 500);
+  }
+}
+
+
+// HEARTORA: REPORT A MEMBER
+async function handleReportMember(
+  request: Request,
+  env: Env,
+  memberId: string,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  if (!isSameOriginRequest(request)) {
+    return json({
+      success: false,
+      error: "Request origin rejected.",
+    }, 403);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to report a member.",
+    }, 401);
+  }
+
+  if (
+    !/^[0-9a-f-]{36}$/i.test(memberId) ||
+    memberId === user.id
+  ) {
+    return json({
+      success: false,
+      error: "Please select a valid member.",
+    }, 400);
+  }
+
+  if (
+    !request.headers
+      .get("Content-Type")
+      ?.toLowerCase()
+      .startsWith("application/json")
+  ) {
+    return json({
+      success: false,
+      error: "Content-Type must be application/json.",
+    }, 415);
+  }
+
+  let body: Record<string, unknown>;
+
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return json({
+      success: false,
+      error: "Invalid JSON request.",
+    }, 400);
+  }
+
+  const allowedReasons = [
+    "harassment",
+    "fake_profile",
+    "scam",
+    "inappropriate_content",
+    "underage",
+    "other",
+  ];
+
+  const reason =
+    typeof body.reason === "string"
+      ? body.reason.trim()
+      : "";
+
+  const details =
+    typeof body.details === "string"
+      ? body.details.trim()
+      : "";
+
+  if (!allowedReasons.includes(reason)) {
+    return json({
+      success: false,
+      error: "Please select a valid report reason.",
+    }, 400);
+  }
+
+  if (details.length > 2000) {
+    return json({
+      success: false,
+      error: "Report details cannot exceed 2,000 characters.",
+    }, 400);
+  }
+
+  try {
+    const account = await env.DB.prepare(`
+      SELECT date_of_birth
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(user.id)
+      .first<{ date_of_birth: string }>();
+
+    if (!account || calculateAge(account.date_of_birth) < 18) {
+      return json({
+        success: false,
+        error: "This feature is available to adults aged 18 and older.",
+      }, 403);
+    }
+
+    const target = await env.DB.prepare(`
+      SELECT id
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(memberId)
+      .first<{ id: string }>();
+
+    if (!target) {
+      return json({
+        success: false,
+        error: "Member not found.",
+      }, 404);
+    }
+
+    const reportId = randomId();
+
+    await env.DB.prepare(`
+      INSERT INTO member_reports (
+        id,
+        reporter_id,
+        reported_user_id,
+        reason,
+        details
+      )
+      VALUES (?, ?, ?, ?, ?)
+    `)
+      .bind(
+        reportId,
+        user.id,
+        memberId,
+        reason,
+        details,
+      )
+      .run();
+
+    return json({
+      success: true,
+      message: "Your report has been submitted for review.",
+      reportId,
+    }, 201);
+  } catch (error) {
+    console.error("Heartora report member failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to submit your report right now.",
+    }, 500);
+  }
+      }
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -2275,6 +2533,31 @@ if (url.pathname === "/api/messages/conversations") {
     // HEARTORA: MEMBER INBOX ROUTE
 if (url.pathname === "/api/messages/inbox") {
   return handleMessageInbox(request, env);
+}
+    // HEARTORA: BLOCK MEMBER ROUTE
+const blockMemberMatch = url.pathname.match(
+  /^\/api\/members\/([0-9a-f-]{36})\/block$/i,
+);
+
+if (blockMemberMatch) {
+  return handleBlockMember(
+    request,
+    env,
+    blockMemberMatch[1],
+  );
+}
+
+// HEARTORA: REPORT MEMBER ROUTE
+const reportMemberMatch = url.pathname.match(
+  /^\/api\/members\/([0-9a-f-]{36})\/report$/i,
+);
+
+if (reportMemberMatch) {
+  return handleReportMember(
+    request,
+    env,
+    reportMemberMatch[1],
+  );
 }
     // HEARTORA: READ OR SEND MESSAGES IN A CONVERSATION
 const conversationMessagesMatch = url.pathname.match(
