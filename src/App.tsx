@@ -3177,7 +3177,8 @@ try {
         </section>
       </main>
     );
-                    }
+   }
+  
   function renderAbout() {
     return (
       <main style={styles.main}>
