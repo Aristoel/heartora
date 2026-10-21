@@ -693,11 +693,147 @@ const [messagingNotice, setMessagingNotice] =
       .catch(() => {
         // A visitor without an active session can still browse Heartora.
       });
+      // HEARTORA: LOAD NOTIFICATIONS WHEN SIGNED IN
+  useEffect(() => {
+    if (currentUser) {
+      void loadNotifications();
+    } else {
+      setNotifications([]);
+      setUnreadNotificationCount(0);
+      setNotificationsOpen(false);
+    }
+  }, [currentUser]);
 
     return () => {
       active = false;
     };
   }, []);
+    // HEARTORA: LOAD MEMBER NOTIFICATIONS
+  async function loadNotifications() {
+    if (!currentUser) {
+      setNotifications([]);
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    setNotificationsLoading(true);
+    setNotificationError("");
+
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await response.json() as {
+        success?: boolean;
+        notifications?: typeof notifications;
+        unreadCount?: number;
+        error?: string;
+      };
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error || "Unable to load notifications."
+        );
+      }
+
+      setNotifications(data.notifications || []);
+      setUnreadNotificationCount(data.unreadCount || 0);
+    } catch (error) {
+      setNotificationError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load notifications."
+      );
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }
+    // HEARTORA: MARK ONE NOTIFICATION AS READ
+  async function markNotificationRead(id: string) {
+    try {
+      const response = await fetch("/api/notifications/read", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await response.json() as {
+        success?: boolean;
+        updated?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error || "Unable to mark notification as read."
+        );
+      }
+
+      setNotifications((previous) =>
+        previous.map((notification) =>
+          notification.id === id
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+
+      await loadNotifications();
+    } catch (error) {
+      setNotificationError(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark notification as read."
+      );
+    }
+    }
+    // HEARTORA: MARK ALL NOTIFICATIONS AS READ
+  async function markAllNotificationsRead() {
+    setNotificationError("");
+
+    try {
+      const response = await fetch("/api/notifications/read-all", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+
+      const data = await response.json() as {
+        success?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error || "Unable to mark all notifications as read."
+        );
+      }
+
+      setNotifications((previous) =>
+        previous.map((notification) => ({
+          ...notification,
+          isRead: true,
+        }))
+      );
+
+      setUnreadNotificationCount(0);
+      await loadNotifications();
+    } catch (error) {
+      setNotificationError(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark all notifications as read."
+      );
+    }
+  }
 
   function navigate(nextPage: Page) {
     setPage(nextPage);
