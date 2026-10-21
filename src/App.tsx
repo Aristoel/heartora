@@ -1090,6 +1090,426 @@ const [messagingNotice, setMessagingNotice] =
       setMemberActionLoading(false);
     }
         }
+  // HEARTORA: RENDER MEMBER PROFILE
+function renderMember() {
+  if (memberProfileLoading) {
+    return (
+      <main className="page-container">
+        <p>Loading member profile...</p>
+      </main>
+    );
+  }
+
+  if (memberProfileError || !selectedMember) {
+    return (
+      <main className="page-container">
+        <button
+          type="button"
+          onClick={() => navigate("discover")}
+        >
+          <ArrowLeft size={18} /> Back to Discover
+        </button>
+
+        <p role="alert">
+          {memberProfileError || "This member profile is unavailable."}
+        </p>
+      </main>
+    );
+  }
+
+  const member = selectedMember;
+
+  return (
+    <main className="page-container">
+      <button
+        type="button"
+        onClick={() => navigate("discover")}
+      >
+        <ArrowLeft size={18} /> Back to Discover
+      </button>
+
+      {messagingNotice && (
+        <div
+          role="status"
+          className={`notice ${messagingNotice.type}`}
+        >
+          {messagingNotice.message}
+        </div>
+      )}
+
+      <section className="member-profile">
+        <div className="member-profile-header">
+          {member.profilePhotoUrl ? (
+            <img
+              src={member.profilePhotoUrl}
+              alt={`${member.displayName}'s profile`}
+              className="member-profile-photo"
+            />
+          ) : (
+            <div className="member-profile-photo member-profile-placeholder">
+              <UserRound size={48} />
+            </div>
+          )}
+
+          <div>
+            <h1>{member.displayName}</h1>
+
+            <p>
+              {member.age !== null ? `${member.age} years old` : ""}
+              {member.age !== null && (member.city || member.country)
+                ? " · "
+                : ""}
+              {[member.city, member.country]
+                .filter(Boolean)
+                .join(", ")}
+            </p>
+          </div>
+        </div>
+
+        <div className="member-profile-section">
+          <h2>About</h2>
+          <p>
+            {member.bio || "This member hasn't added a bio yet."}
+          </p>
+        </div>
+
+        <div className="member-profile-section">
+          <h2>Interests</h2>
+          <p>
+            {member.interests || "No interests listed yet."}
+          </p>
+        </div>
+
+        {member.photos.length > 0 && (
+          <div className="member-profile-section">
+            <h2>Photos</h2>
+
+            <div className="member-photo-gallery">
+              {member.photos.map((photo) => (
+                <img
+                  key={photo.id}
+                  src={photo.url}
+                  alt={`${member.displayName}'s photo`}
+                  loading="lazy"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="member-profile-actions">
+          <button
+            type="button"
+            disabled={memberActionLoading}
+            onClick={() => void startConversation(member.id)}
+          >
+            <MessageCircle size={18} />
+            Send Message
+          </button>
+
+          <button
+            type="button"
+            disabled={memberActionLoading}
+            onClick={() => {
+              setShowReportForm((previous) => !previous);
+              setMessagingNotice(null);
+            }}
+          >
+            Report Member
+          </button>
+
+          <button
+            type="button"
+            disabled={memberActionLoading}
+            onClick={() => {
+              const confirmed = window.confirm(
+                `Are you sure you want to block ${member.displayName}?`
+              );
+
+              if (confirmed) {
+                void blockMember(member.id);
+              }
+            }}
+          >
+            Block Member
+          </button>
+        </div>
+
+        {memberActionLoading && <p>Processing your request...</p>}
+
+        {showReportForm && (
+          <form
+            className="member-report-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void reportMember(member.id);
+            }}
+          >
+            <h2>Report this member</h2>
+
+            <label htmlFor="heartora-report-reason">
+              Reason
+            </label>
+
+            <select
+              id="heartora-report-reason"
+              value={reportReason}
+              onChange={(event) => setReportReason(event.target.value)}
+            >
+              <option value="harassment">Harassment</option>
+              <option value="fake_profile">Fake profile</option>
+              <option value="scam">Scam</option>
+              <option value="inappropriate_content">
+                Inappropriate content
+              </option>
+              <option value="underage">Suspected underage user</option>
+              <option value="other">Other</option>
+            </select>
+
+            <label htmlFor="heartora-report-details">
+              Additional details (optional)
+            </label>
+
+            <textarea
+              id="heartora-report-details"
+              value={reportDetails}
+              onChange={(event) => setReportDetails(event.target.value)}
+              maxLength={2000}
+              rows={4}
+              placeholder="Describe the issue..."
+            />
+
+            <button
+              type="submit"
+              disabled={memberActionLoading}
+            >
+              Submit Report
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowReportForm(false)}
+            >
+              Cancel
+            </button>
+          </form>
+        )}
+      </section>
+    </main>
+  );
+}
+
+// HEARTORA: RENDER MESSAGE INBOX
+function renderInbox() {
+  return (
+    <main className="page-container">
+      <button
+        type="button"
+        onClick={() => navigate("discover")}
+      >
+        <ArrowLeft size={18} /> Back to Discover
+      </button>
+
+      <div className="inbox-heading">
+        <h1>
+          <MessageCircle size={24} /> Messages
+        </h1>
+
+        <button
+          type="button"
+          onClick={() => void loadInbox()}
+          disabled={inboxLoading}
+        >
+          {inboxLoading ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
+
+      {messagingNotice && (
+        <div
+          role="status"
+          className={`notice ${messagingNotice.type}`}
+        >
+          {messagingNotice.message}
+        </div>
+      )}
+
+      {inboxError && (
+        <p role="alert">{inboxError}</p>
+      )}
+
+      {inboxLoading && inbox.length === 0 && (
+        <p>Loading your conversations...</p>
+      )}
+
+      {!inboxLoading && !inboxError && inbox.length === 0 && (
+        <section className="empty-inbox">
+          <MessageCircle size={42} />
+          <h2>No messages yet</h2>
+          <p>
+            Visit a member's profile and send a message to start a
+            conversation.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => navigate("discover")}
+          >
+            Discover Members
+          </button>
+        </section>
+      )}
+
+      <div className="inbox-list">
+        {inbox.map((conversation) => (
+          <button
+            type="button"
+            key={conversation.id}
+            className="inbox-conversation"
+            onClick={() => void openConversation(conversation.id)}
+          >
+            {conversation.member.profilePhotoUrl ? (
+              <img
+                src={conversation.member.profilePhotoUrl}
+                alt=""
+                className="inbox-avatar"
+              />
+            ) : (
+              <span className="inbox-avatar inbox-avatar-placeholder">
+                <UserRound size={24} />
+              </span>
+            )}
+
+            <span className="inbox-conversation-content">
+              <strong>{conversation.member.displayName}</strong>
+
+              <span>
+                {[conversation.member.city, conversation.member.country]
+                  .filter(Boolean)
+                  .join(", ")}
+              </span>
+
+              <span className="inbox-last-message">
+                {conversation.lastMessage?.body || "Start chatting"}
+              </span>
+            </span>
+
+            {conversation.unreadCount > 0 && (
+              <span className="inbox-unread-count">
+                {conversation.unreadCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+
+// HEARTORA: RENDER PRIVATE CONVERSATION
+function renderConversation() {
+  const conversation = inbox.find(
+    (item) => item.id === activeConversationId
+  );
+
+  return (
+    <main className="page-container">
+      <button
+        type="button"
+        onClick={() => navigate("inbox")}
+      >
+        <ArrowLeft size={18} /> Back to Messages
+      </button>
+
+      <header className="conversation-heading">
+        <h1>
+          {conversation?.member.displayName || "Conversation"}
+        </h1>
+
+        {conversation && (
+          <p>
+            {[conversation.member.city, conversation.member.country]
+              .filter(Boolean)
+              .join(", ")}
+          </p>
+        )}
+      </header>
+
+      {messagingNotice && (
+        <div
+          role="status"
+          className={`notice ${messagingNotice.type}`}
+        >
+          {messagingNotice.message}
+        </div>
+      )}
+
+      {messagesError && (
+        <p role="alert">{messagesError}</p>
+      )}
+
+      {messagesLoading && <p>Loading messages...</p>}
+
+      {!messagesLoading && messages.length === 0 && !messagesError && (
+        <p className="empty-conversation">
+          No messages yet. Say hello!
+        </p>
+      )}
+
+      <div className="message-list" aria-live="polite">
+        {messages.map((message) => {
+          const isOwnMessage = message.senderId === currentUser?.id;
+
+          return (
+            <article
+              key={message.id}
+              className={
+                isOwnMessage
+                  ? "private-message own-message"
+                  : "private-message received-message"
+              }
+            >
+              <p>{message.body}</p>
+
+              <time dateTime={message.createdAt}>
+                {new Date(message.createdAt).toLocaleString()}
+              </time>
+            </article>
+          );
+        })}
+      </div>
+
+      <form
+        className="message-composer"
+        onSubmit={sendPrivateMessage}
+      >
+        <label htmlFor="heartora-message-draft">
+          Write a message
+        </label>
+
+        <textarea
+          id="heartora-message-draft"
+          value={messageDraft}
+          onChange={(event) => setMessageDraft(event.target.value)}
+          maxLength={2000}
+          rows={3}
+          placeholder="Write something kind..."
+          required
+        />
+
+        <button
+          type="submit"
+          disabled={
+            messageSending ||
+            !messageDraft.trim() ||
+            !activeConversationId
+          }
+        >
+          {messageSending ? "Sending..." : "Send Message"}
+        </button>
+      </form>
+    </main>
+  );
+}
   // Load the signed-in member's profile and photos.
   async function loadMemberProfile() {
     if (!currentUser) {
