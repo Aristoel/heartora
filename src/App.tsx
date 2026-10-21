@@ -1026,49 +1026,30 @@ const [messagingNotice, setMessagingNotice] =
   }
 
     // HEARTORA: OPEN A NOTIFICATION
-  async function handleNotificationClick(
-    notification: (typeof notifications)[number]
-  ) {
-    setNotificationsOpen(false);
-    setNotificationError("");
+async function handleNotificationClick(
+  notification: (typeof notifications)[number]
+) {
+  setNotificationError("");
 
-    if (!notification.isRead) {
-      await markNotificationRead(notification.id);
-    }
-
-    if (notification.type === "message") {
-      if (notification.relatedId) {
-        await openConversation(notification.relatedId);
-      } else {
-        navigate("inbox");
-      }
-
-      return;
-    }
-
-    if (
-      notification.type === "like" ||
-      notification.type === "match" ||
-      notification.type === "profile_view"
-    ) {
-      if (notification.actorId) {
-        try {
-          await loadMemberProfile(notification.actorId);
-        } catch {
-          setNotificationError(
-            "Unable to open this member's profile."
-          );
-        }
-      }
-
-      return;
-    }
-
-    // Support messages and website announcements remain
-    // in the notification panel rather than opening a conversation.
-    setSelectedNotificationId(notification.id);
-    setNotificationsOpen(true);
+  if (!notification.isRead) {
+    await markNotificationRead(notification.id);
   }
+
+  if (notification.type === "message") {
+    setNotificationsOpen(false);
+
+    if (notification.relatedId) {
+      await openConversation(notification.relatedId);
+    } else {
+      navigate("inbox");
+    }
+
+    return;
+  }
+
+  // Keep non-message notifications available in the panel.
+  setNotificationsOpen(true);
+}
   
   // HEARTORA: START A PRIVATE CONVERSATION
   async function startConversation(memberId: string) {
@@ -4340,16 +4321,27 @@ if (page === "admin") {
             )}
 
           {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              style={{
-                padding: 14,
-                borderBottom: "1px solid #f7edf2",
-                background: notification.isRead
-                  ? "#ffffff"
-                  : "#fff5f9",
-              }}
-            >
+  <div
+    key={notification.id}
+    onClick={() => void handleNotificationClick(notification)}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        void handleNotificationClick(notification);
+      }
+    }}
+    style={{
+      padding: 14,
+      borderBottom: "1px solid #f7edf2",
+      background: notification.isRead
+        ? "#ffffff"
+        : "#fff5f9",
+      cursor: "pointer",
+    }}
+  >
+            
               <div
                 style={{
                   display: "flex",
@@ -4409,9 +4401,11 @@ if (page === "admin") {
                 {!notification.isRead && (
                   <button
                     type="button"
-                    onClick={() =>
-                      void markNotificationRead(notification.id)
-                    }
+                    onClick={(event) => {
+  event.stopPropagation();
+  void markNotificationRead(notification.id);
+}}
+                      
                     style={{
                       border: "none",
                       background: "transparent",
