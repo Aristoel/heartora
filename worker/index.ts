@@ -1648,9 +1648,212 @@ async function handleProfilePhotos(
   }
           }
 
+// HEARTORA: CREATE OR REOPEN A PRIVATE CONVERSATION
+async function handleCreateConversation(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  if (!isSameOriginRequest(request)) {
+    return json({
+      success: false,
+      error: "Request origin rejected.",
+    }, 403);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to message members.",
+    }, 401);
+  }
+
+  if (
+    !request.headers
+      .get("Content-Type")
+      ?.toLowerCase()
+      .startsWith("application/json")
+  ) {
+    return json({
+      success: false,
+      error: "Content-Type must be application/json.",
+    }, 415);
+  }
+
+  let body: Record<string, unknown>;
+
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return json({
+      success: false,
+      error: "Invalid JSON request.",
+    }, 400);
+  }
+
+  const memberId =
+    typeof body.memberId === "string"
+      ? body.memberId.trim()
+      : "";
+
+  if (
+    !/^[0-9a-f-]{36}$/i.test(memberId) ||
+    memberId === user.id
+  ) {
+    return json({
+      success: false,
+      error: "Please select a valid member.",
+    }, 400);
+  }
+
+  try {
+    // Verify both accounts and their ages.
+    const target = await env.DB.prepare(`
+      SELECT
+        u.id,
+        u.date_of_birth,
+        mp.show_in_discovery
+      FROM users u
+      JOIN member_profiles mp ON mp.user_id = u.id
+      WHERE u.id = ?
+      LIMIT 1
+    `)
+      .bind(memberId)
+      .first<{
+        id: string;
+        date_of_birth: string;
+        show_in_discovery: number;
+      }>();
+
+    const sender = await env.DB.prepare(`
+      SELECT date_of_birth
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(user.id)
+      .first<{ date_of_birth: string }>();
+
+    if (
+      !target ||
+      !sender ||
+      calculateAge(sender.date_of_birth) < 18 ||
+      calculateAge(target.date_of_birth) < 18
+    ) {
+      return json({
+        success: false,
+        error: "This member is unavailable for messaging.",
+      }, 404);
+    }
+
+    // Either member blocking the other prevents messaging.
+    const block = await env.DB.prepare(`
+      SELECT blocker_id
+      FROM member_blocks
+      WHERE
+        (blocker_id = ? AND blocked_id = ?)
+        OR
+        (blocker_id = ? AND blocked_id = ?)
+      LIMIT 1
+    `)
+      .bind(user.id, memberId, memberId, user.id)
+      .first<{ blocker_id: string }>();
+
+    if (block) {
+      return json({
+        success: false,
+        error: "This conversation is unavailable.",
+      }, 403);
+    }
+
+    // Only discoverable profiles may receive new conversations.
+    if (target.show_in_discovery !== 1) {
+      return json({
+        success: false,
+        error: "This member is unavailable for new conversations.",
+      }, 404);
+    }
+
+    // Reuse an existing conversation shared by both members.
+    const existing = await env.DB.prepare(`
+      SELECT c.id
+      FROM member_conversations c
+      JOIN member_conversation_participants p1
+        ON p1.conversation_id = c.id
+      JOIN member_conversation_participants p2
+        ON p2.conversation_id = c.id
+      WHERE p1.user_id = ?
+        AND p2.user_id = ?
+      LIMIT 1
+    `)
+      .bind(user.id, memberId)
+      .first<{ id: string }>();
+
+    if (existing) {
+      return json({
+        success: true,
+        conversation: {
+          id: existing.id,
+          memberId,
+        },
+        existing: true,
+      });
+    }
+
+    // Create the conversation and its two participants.
+    const conversationId = randomId();
+
+    await env.DB.batch([
+      env.DB.prepare(`
+        INSERT INTO member_conversations (id)
+        VALUES (?)
+      `).bind(conversationId),
+
+      env.DB.prepare(`
+        INSERT INTO member_conversation_participants
+          (conversation_id, user_id)
+        VALUES (?, ?)
+      `).bind(conversationId, user.id),
+
+      env.DB.prepare(`
+        INSERT INTO member_conversation_participants
+          (conversation_id, user_id)
+        VALUES (?, ?)
+      `).bind(conversationId, memberId),
+    ]);
+
+    return json({
+      success: true,
+      conversation: {
+        id: conversationId,
+        memberId,
+      },
+      existing: false,
+    }, 201);
+  } catch (error) {
+    console.error("Heartora conversation creation failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to start this conversation right now.",
+    }, 500);
+  }
+}
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    // HEARTORA: PRIVATE MESSAGING ROUTES
+if (url.pathname === "/api/messages/conversations") {
+  return handleCreateConversation(request, env);
+}
     // HEARTORA MEMBER PHOTO MANAGEMENT
 if (url.pathname === "/api/profile/photos") {
   if (request.method !== "GET" && request.method !== "POST") {
