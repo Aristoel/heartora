@@ -1847,12 +1847,273 @@ async function handleCreateConversation(
     }, 500);
   }
 }
+// HEARTORA: READ AND SEND PRIVATE MESSAGES
+async function handleConversationMessages(
+  request: Request,
+  env: Env,
+  conversationId: string,
+): Promise<Response> {
+  if (request.method !== "GET" && request.method !== "POST") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  if (request.method === "POST" && !isSameOriginRequest(request)) {
+    return json({
+      success: false,
+      error: "Request origin rejected.",
+    }, 403);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to access messages.",
+    }, 401);
+  }
+
+  if (
+    request.method === "POST" &&
+    !request.headers
+      .get("Content-Type")
+      ?.toLowerCase()
+      .startsWith("application/json")
+  ) {
+    return json({
+      success: false,
+      error: "Content-Type must be application/json.",
+    }, 415);
+  }
+
+  if (!/^[0-9a-f-]{36}$/i.test(conversationId)) {
+    return json({
+      success: false,
+      error: "Invalid conversation.",
+    }, 400);
+  }
+
+  try {
+    // Confirm that the signed-in user is an adult.
+    const account = await env.DB.prepare(`
+      SELECT date_of_birth
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(user.id)
+      .first<{ date_of_birth: string }>();
+
+    if (!account || calculateAge(account.date_of_birth) < 18) {
+      return json({
+        success: false,
+        error: "Messaging is available to adults aged 18 and older.",
+      }, 403);
+    }
+
+    // Only conversation participants may read or send messages.
+    const participant = await env.DB.prepare(`
+      SELECT user_id
+      FROM member_conversation_participants
+      WHERE conversation_id = ?
+        AND user_id = ?
+      LIMIT 1
+    `)
+      .bind(conversationId, user.id)
+      .first<{ user_id: string }>();
+
+    if (!participant) {
+      return json({
+        success: false,
+        error: "Conversation not found.",
+      }, 404);
+    }
+
+    // Confirm that the other participant has not blocked this user,
+    // and that this user has not blocked the other participant.
+    const otherParticipant = await env.DB.prepare(`
+      SELECT user_id
+      FROM member_conversation_participants
+      WHERE conversation_id = ?
+        AND user_id <> ?
+      LIMIT 1
+    `)
+      .bind(conversationId, user.id)
+      .first<{ user_id: string }>();
+
+    if (!otherParticipant) {
+      return json({
+        success: false,
+        error: "Conversation not found.",
+      }, 404);
+    }
+
+    const block = await env.DB.prepare(`
+      SELECT blocker_id
+      FROM member_blocks
+      WHERE
+        (blocker_id = ? AND blocked_id = ?)
+        OR
+        (blocker_id = ? AND blocked_id = ?)
+      LIMIT 1
+    `)
+      .bind(
+        user.id,
+        otherParticipant.user_id,
+        otherParticipant.user_id,
+        user.id,
+      )
+      .first<{ blocker_id: string }>();
+
+    if (block) {
+      return json({
+        success: false,
+        error: "Messaging is unavailable for this conversation.",
+      }, 403);
+    }
+
+    // SEND A MESSAGE
+    if (request.method === "POST") {
+      let body: Record<string, unknown>;
+
+      try {
+        body = await request.json() as Record<string, unknown>;
+      } catch {
+        return json({
+          success: false,
+          error: "Invalid JSON request.",
+        }, 400);
+      }
+
+      const messageBody =
+        typeof body.body === "string"
+          ? body.body.trim()
+          : "";
+
+      if (!messageBody) {
+        return json({
+          success: false,
+          error: "Please enter a message.",
+        }, 400);
+      }
+
+      if (messageBody.length > 2000) {
+        return json({
+          success: false,
+          error: "Messages cannot exceed 2,000 characters.",
+        }, 400);
+      }
+
+      const messageId = randomId();
+
+      await env.DB.batch([
+        env.DB.prepare(`
+          INSERT INTO member_messages
+            (id, conversation_id, sender_id, body)
+          VALUES (?, ?, ?, ?)
+        `).bind(
+          messageId,
+          conversationId,
+          user.id,
+          messageBody,
+        ),
+
+        env.DB.prepare(`
+          UPDATE member_conversations
+          SET updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(conversationId),
+      ]);
+
+      return json({
+        success: true,
+        message: {
+          id: messageId,
+          conversationId,
+          senderId: user.id,
+          body: messageBody,
+          createdAt: new Date().toISOString(),
+          readAt: null,
+        },
+      }, 201);
+    }
+
+    // READ MESSAGES IN CHRONOLOGICAL ORDER.
+    // Mark incoming messages as read only after participant verification.
+    await env.DB.prepare(`
+      UPDATE member_messages
+      SET read_at = CURRENT_TIMESTAMP
+      WHERE conversation_id = ?
+        AND sender_id <> ?
+        AND read_at IS NULL
+    `)
+      .bind(conversationId, user.id)
+      .run();
+
+    const results = await env.DB.prepare(`
+      SELECT
+        id,
+        conversation_id,
+        sender_id,
+        body,
+        created_at,
+        read_at
+      FROM member_messages
+      WHERE conversation_id = ?
+      ORDER BY created_at ASC, id ASC
+      LIMIT 200
+    `)
+      .bind(conversationId)
+      .all<{
+        id: string;
+        conversation_id: string;
+        sender_id: string;
+        body: string;
+        created_at: string;
+        read_at: string | null;
+      }>();
+
+    return json({
+      success: true,
+      messages: (results.results || []).map((message) => ({
+        id: message.id,
+        conversationId: message.conversation_id,
+        senderId: message.sender_id,
+        body: message.body,
+        createdAt: message.created_at,
+        readAt: message.read_at,
+      })),
+    });
+  } catch (error) {
+    console.error("Heartora message operation failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to process messages right now.",
+    }, 500);
+  }
+      }
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     // HEARTORA: PRIVATE MESSAGING ROUTES
 if (url.pathname === "/api/messages/conversations") {
   return handleCreateConversation(request, env);
+}
+    // HEARTORA: READ OR SEND MESSAGES IN A CONVERSATION
+const conversationMessagesMatch = url.pathname.match(
+  /^\/api\/messages\/conversations\/([0-9a-f-]{36})\/messages$/i,
+);
+
+if (conversationMessagesMatch) {
+  return handleConversationMessages(
+    request,
+    env,
+    conversationMessagesMatch[1],
+  );
 }
     // HEARTORA MEMBER PHOTO MANAGEMENT
 if (url.pathname === "/api/profile/photos") {
