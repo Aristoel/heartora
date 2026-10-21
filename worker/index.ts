@@ -3342,3 +3342,219 @@ const newMembers = await env.DB.prepare(
     }, 404);
   },
 };
+
+// HEARTORA: MEMBER NOTIFICATIONS
+async function handleMemberNotifications(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (request.method !== "GET") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to view your notifications.",
+    }, 401);
+  }
+
+  try {
+    const result = await env.DB.prepare(`
+      SELECT
+        id,
+        actor_id,
+        type,
+        title,
+        body,
+        related_id,
+        is_read,
+        created_at,
+        read_at
+      FROM member_notifications
+      WHERE user_id = ?
+      ORDER BY created_at DESC, id DESC
+      LIMIT 100
+    `)
+      .bind(user.id)
+      .all<{
+        id: string;
+        actor_id: string | null;
+        type: string;
+        title: string;
+        body: string;
+        related_id: string | null;
+        is_read: number;
+        created_at: string;
+        read_at: string | null;
+      }>();
+
+    const unreadResult = await env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM member_notifications
+      WHERE user_id = ?
+        AND is_read = 0
+    `)
+      .bind(user.id)
+      .first<{ total: number }>();
+
+    return json({
+      success: true,
+      notifications: (result.results || []).map((item) => ({
+        id: item.id,
+        actorId: item.actor_id,
+        type: item.type,
+        title: item.title,
+        body: item.body,
+        relatedId: item.related_id,
+        isRead: item.is_read === 1,
+        createdAt: item.created_at,
+        readAt: item.read_at,
+      })),
+      unreadCount: Number(unreadResult?.total || 0),
+    });
+  } catch (error) {
+    console.error("Heartora notifications request failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to load notifications right now.",
+    }, 500);
+  }
+}
+
+// HEARTORA: MARK ONE NOTIFICATION AS READ
+async function handleMarkNotificationRead(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  if (!isSameOriginRequest(request)) {
+    return json({
+      success: false,
+      error: "Request origin rejected.",
+    }, 403);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to manage notifications.",
+    }, 401);
+  }
+
+  if (
+    !request.headers
+      .get("Content-Type")
+      ?.toLowerCase()
+      .startsWith("application/json")
+  ) {
+    return json({
+      success: false,
+      error: "Content-Type must be application/json.",
+    }, 415);
+  }
+
+  try {
+    const body = await request.json() as Record<string, unknown>;
+    const notificationId =
+      typeof body.id === "string" ? body.id.trim() : "";
+
+    if (!notificationId || notificationId.length > 200) {
+      return json({
+        success: false,
+        error: "A valid notification ID is required.",
+      }, 400);
+    }
+
+    const result = await env.DB.prepare(`
+      UPDATE member_notifications
+      SET
+        is_read = 1,
+        read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
+      WHERE id = ?
+        AND user_id = ?
+        AND is_read = 0
+    `)
+      .bind(notificationId, user.id)
+      .run();
+
+    return json({
+      success: true,
+      updated: (result.meta.changes || 0) > 0,
+    });
+  } catch (error) {
+    console.error("Heartora mark notification read failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to update this notification.",
+    }, 500);
+  }
+}
+
+// HEARTORA: MARK ALL NOTIFICATIONS AS READ
+async function handleMarkAllNotificationsRead(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return json({
+      success: false,
+      error: "Method not allowed.",
+    }, 405);
+  }
+
+  if (!isSameOriginRequest(request)) {
+    return json({
+      success: false,
+      error: "Request origin rejected.",
+    }, 403);
+  }
+
+  const user = await currentUser(request, env);
+
+  if (!user) {
+    return json({
+      success: false,
+      error: "Please sign in to manage notifications.",
+    }, 401);
+  }
+
+  try {
+    await env.DB.prepare(`
+      UPDATE member_notifications
+      SET
+        is_read = 1,
+        read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
+      WHERE user_id = ?
+        AND is_read = 0
+    `)
+      .bind(user.id)
+      .run();
+
+    return json({
+      success: true,
+    });
+  } catch (error) {
+    console.error("Heartora mark all notifications read failed:", error);
+
+    return json({
+      success: false,
+      error: "Unable to update notifications.",
+    }, 500);
+  }
+ }
