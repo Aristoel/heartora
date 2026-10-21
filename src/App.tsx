@@ -3961,6 +3961,9 @@ if (page === "admin") {
 {page === "safety" && renderSafety()}
 {page === "premium" && renderPremium()}
 {page === "profile" && renderProfile()}
+      {page === "member" && renderMember()}
+{page === "inbox" && renderInbox()}
+{page === "conversation" && renderConversation()}
 
 {(page === "signup" ||
   page === "signin" ||
