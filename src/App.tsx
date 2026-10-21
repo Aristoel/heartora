@@ -127,7 +127,10 @@ type Page =
   | "forgot"
   | "premium"
   | "admin"
-  | "profile";
+  | "profile"
+  | "member"
+  | "inbox"
+  | "conversation";
 
 type Notice = {
   type: "success" | "error" | "info";
@@ -146,6 +149,53 @@ type AuthResponse = {
   error?: string;
   message?: string;
   user?: AuthUser;
+};
+// HEARTORA: PUBLIC MEMBER PROFILE
+type MemberProfile = {
+  id: string;
+  displayName: string;
+  age: number | null;
+  country: string;
+  city: string | null;
+  bio: string | null;
+  interests: string | null;
+  profilePhotoUrl: string | null;
+  photos: {
+    id: string;
+    url: string;
+    isPrimary?: boolean;
+  }[];
+};
+
+// HEARTORA: PRIVATE MESSAGE
+type PrivateMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+};
+
+// HEARTORA: INBOX CONVERSATION
+type InboxConversation = {
+  id: string;
+  updatedAt: string;
+  member: {
+    id: string;
+    displayName: string;
+    country: string;
+    city: string | null;
+    bio: string | null;
+    profilePhotoUrl: string | null;
+  };
+  lastMessage: {
+    id: string;
+    body: string | null;
+    senderId: string | null;
+    createdAt: string | null;
+  } | null;
+  unreadCount: number;
 };
 
 const countries = [
@@ -543,6 +593,39 @@ const [discoveryTotalPages, setDiscoveryTotalPages] = useState(0);
 
   const [authNotice, setAuthNotice] = useState<Notice | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  // HEARTORA: MEMBER PROFILE VIEW
+const [selectedMember, setSelectedMember] =
+  useState<MemberProfile | null>(null);
+
+const [memberProfileLoading, setMemberProfileLoading] =
+  useState(false);
+
+const [memberProfileError, setMemberProfileError] =
+  useState("");
+
+const [memberActionLoading, setMemberActionLoading] =
+  useState(false);
+
+// HEARTORA: PRIVATE MESSAGING
+const [inbox, setInbox] = useState<InboxConversation[]>([]);
+const [inboxLoading, setInboxLoading] = useState(false);
+const [inboxError, setInboxError] = useState("");
+
+const [activeConversationId, setActiveConversationId] =
+  useState<string | null>(null);
+
+const [messages, setMessages] = useState<PrivateMessage[]>([]);
+const [messagesLoading, setMessagesLoading] = useState(false);
+const [messagesError, setMessagesError] = useState("");
+const [messageDraft, setMessageDraft] = useState("");
+const [messageSending, setMessageSending] = useState(false);
+
+// HEARTORA: MEMBER SAFETY
+const [reportReason, setReportReason] = useState("other");
+const [reportDetails, setReportDetails] = useState("");
+const [showReportForm, setShowReportForm] = useState(false);
+const [messagingNotice, setMessagingNotice] =
+  useState<Notice | null>(null);
     // HEARTORA MEMBER PROFILE
   const [profileBio, setProfileBio] = useState("");
   const [profileCity, setProfileCity] = useState("");
