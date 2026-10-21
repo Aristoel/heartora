@@ -2050,7 +2050,7 @@ async function handleConversationMessages(
           messageBody.length > 120
             ? `${messageBody.slice(0, 117)}...`
             : messageBody,
-          messageId,
+              conversationId,
         ),
       ]);
 
