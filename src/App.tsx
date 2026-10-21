@@ -2598,7 +2598,117 @@ try {
               </div>
             )}
           </section>
-        )}       
+        )} 
+
+                {currentUser && discoveredMembers.length > 0 && (
+          <section style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              Members to discover
+            </h2>
+
+            <div style={styles.grid}>
+              {discoveredMembers.map((member) => (
+                <article
+                  key={member.id}
+                  style={{
+                    ...styles.card,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => void loadMemberDetails(member.id)}
+                >
+                  {member.profilePhotoUrl ? (
+                    <img
+                      src={member.profilePhotoUrl}
+                      alt={`${member.displayName}'s profile`}
+                      loading="lazy"
+                      style={{
+                        width: "100%",
+                        height: 220,
+                        objectFit: "cover",
+                        borderRadius: 14,
+                        marginBottom: 14,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 140,
+                        borderRadius: 14,
+                        marginBottom: 14,
+                        background:
+                          "linear-gradient(135deg, #fce7f3, #ede9fe)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#922c68",
+                        fontSize: 38,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {member.displayName?.trim().charAt(0).toUpperCase() || "H"}
+                    </div>
+                  )}
+
+                  <h3 style={{ margin: "0 0 6px" }}>
+                    {member.displayName}
+                  </h3>
+
+                  <p style={styles.muted}>
+                    {[member.city, member.country].filter(Boolean).join(", ")}
+                  </p>
+
+                  {member.bio && (
+                    <p style={styles.muted}>{member.bio}</p>
+                  )}
+
+                  {member.interests && (
+                    <p style={styles.muted}>
+                      <strong>Interests:</strong> {member.interests}
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
+
+            {discoveryTotalPages > 1 && (
+              <div
+                style={{
+                  ...styles.buttonRow,
+                  justifyContent: "center",
+                  marginTop: 20,
+                }}
+              >
+                <button
+                  type="button"
+                  style={styles.secondaryButton}
+                  disabled={discoveryLoading || discoveryPage <= 1}
+                  onClick={() =>
+                    setDiscoveryPage((page) => Math.max(1, page - 1))
+                  }
+                >
+                  Previous
+                </button>
+
+                <span style={styles.muted}>
+                  Page {discoveryPage} of {discoveryTotalPages}
+                </span>
+
+                <button
+                  type="button"
+                  style={styles.secondaryButton}
+                  disabled={
+                    discoveryLoading ||
+                    discoveryPage >= discoveryTotalPages
+                  }
+                  onClick={() => setDiscoveryPage((page) => page + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </section>
+        )}
                 
         <section style={styles.section}>
           <div
