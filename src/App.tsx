@@ -4093,6 +4093,56 @@ if (page === "admin") {
 
       {currentUser ? (
         <>
+                    <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              style={styles.navButton}
+              onClick={() => {
+                setNotificationsOpen((previous) => !previous);
+                if (!notificationsOpen) {
+                  void loadNotifications();
+                }
+              }}
+              aria-label={`Notifications${
+                unreadNotificationCount > 0
+                  ? `, ${unreadNotificationCount} unread`
+                  : ""
+              }`}
+              title="Notifications"
+            >
+              {unreadNotificationCount > 0 ? (
+                <BellRing size={18} />
+              ) : (
+                <Bell size={18} />
+              )}
+
+              {unreadNotificationCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    minWidth: 18,
+                    height: 18,
+                    padding: "0 4px",
+                    borderRadius: 999,
+                    background: "#e83e72",
+                    color: "#ffffff",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {unreadNotificationCount > 99
+                    ? "99+"
+                    : unreadNotificationCount}
+                </span>
+              )}
+            </button>
+          </div>
           <span
             style={{
               padding: "8px 10px",
@@ -4125,6 +4175,215 @@ if (page === "admin") {
     </nav>
   </div>
 </header>
+            {currentUser && notificationsOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: 76,
+            right: 16,
+            width: "min(380px, calc(100vw - 32px))",
+            maxHeight: "70vh",
+            overflowY: "auto",
+            background: "#ffffff",
+            border: "1px solid #f2dce7",
+            borderRadius: 16,
+            boxShadow: "0 12px 36px rgba(75, 25, 55, 0.16)",
+            zIndex: 1000,
+            boxSizing: "border-box",
+            color: "#392638",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              padding: 16,
+              borderBottom: "1px solid #f4e7ee",
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17 }}>
+                Notifications
+              </h3>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  fontSize: 12,
+                  color: "#806878",
+                }}
+              >
+                {unreadNotificationCount} unread
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void markAllNotificationsRead()}
+              disabled={
+                unreadNotificationCount === 0 ||
+                notificationsLoading
+              }
+              style={{
+                ...styles.navButton,
+                opacity:
+                  unreadNotificationCount === 0 ||
+                  notificationsLoading
+                    ? 0.5
+                    : 1,
+                cursor:
+                  unreadNotificationCount === 0 ||
+                  notificationsLoading
+                    ? "not-allowed"
+                    : "pointer",
+              }}
+            >
+              <CheckCheck size={15} />
+              Mark all read
+            </button>
+          </div>
+
+          {notificationError && (
+            <p
+              role="alert"
+              style={{
+                margin: 12,
+                padding: 10,
+                background: "#fff0f3",
+                color: "#a12650",
+                borderRadius: 8,
+                fontSize: 13,
+              }}
+            >
+              {notificationError}
+            </p>
+          )}
+
+          {notificationsLoading && notifications.length === 0 && (
+            <p
+              style={{
+                padding: 20,
+                textAlign: "center",
+                color: "#806878",
+              }}
+            >
+              Loading notifications…
+            </p>
+          )}
+
+          {!notificationsLoading &&
+            notifications.length === 0 &&
+            !notificationError && (
+              <div
+                style={{
+                  padding: "30px 20px",
+                  textAlign: "center",
+                  color: "#806878",
+                }}
+              >
+                <Bell size={28} />
+                <p style={{ marginBottom: 4, fontWeight: 600 }}>
+                  You're all caught up
+                </p>
+                <p style={{ margin: 0, fontSize: 13 }}>
+                  New activity will appear here.
+                </p>
+              </div>
+            )}
+
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              style={{
+                padding: 14,
+                borderBottom: "1px solid #f7edf2",
+                background: notification.isRead
+                  ? "#ffffff"
+                  : "#fff5f9",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                    }}
+                  >
+                    {!notification.isRead && (
+                      <span
+                        aria-label="Unread"
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: "50%",
+                          background: "#e83e72",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+
+                    <strong style={{ fontSize: 14 }}>
+                      {notification.title}
+                    </strong>
+                  </div>
+
+                  <p
+                    style={{
+                      margin: "6px 0",
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      color: "#674f60",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {notification.body}
+                  </p>
+
+                  <time
+                    dateTime={notification.createdAt}
+                    style={{
+                      fontSize: 11,
+                      color: "#927d8b",
+                    }}
+                  >
+                    {notification.createdAt}
+                  </time>
+                </div>
+
+                {!notification.isRead && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void markNotificationRead(notification.id)
+                    }
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "#c92c60",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      padding: 4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    Mark read
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {page === "discover" && renderDiscover()}
 {page === "about" && renderAbout()}
