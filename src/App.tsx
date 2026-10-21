@@ -588,7 +588,7 @@ export default function App() {
 );
   const [checkoutPriceId, setCheckoutPriceId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-
+  const [discoveryFiltersOpen, setDiscoveryFiltersOpen] = useState(false);
   const [country, setCountry] = useState("United States");
   const [postalCode, setPostalCode] = useState("");
   const [distance, setDistance] = useState("50");
@@ -2433,243 +2433,173 @@ try {
             </article>
           </div>
         </section>
-
-        <section style={styles.section}>
-          <div style={styles.card}>
-            <div style={styles.iconBox}>
-              <MapPin size={23} />
-            </div>
-            <h2 style={styles.sectionTitle}>Discover around your area</h2>
-            <p style={styles.sectionText}>
-              Choose your country, enter a postal or ZIP code, and select a
-              preferred distance. This currently saves your preferences only;
-              live member matching has not been implemented yet.
-            </p>
-
-            <form onSubmit={discoverMatches} style={{ marginTop: 22 }}>
-              <div style={styles.formGrid}>
-                <div>
-                  <label htmlFor="discoveryCountry" style={styles.label}>
-                    Country
-                  </label>
-                  <select
-                    id="discoveryCountry"
-                    value={country}
-                    onChange={(event) => setCountry(event.target.value)}
-                    style={styles.select}
-                  >
-                    {countries.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="discoveryPostalCode" style={styles.label}>
-                    ZIP or postal code
-                  </label>
-                  <input
-                    id="discoveryPostalCode"
-                    value={postalCode}
-                    onChange={(event) => setPostalCode(event.target.value)}
-                    style={styles.plainInput}
-                    maxLength={20}
-                    placeholder="Enter postal code"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="distance" style={styles.label}>
-                    Preferred distance
-                  </label>
-                  <select
-                    id="distance"
-                    value={distance}
-                    onChange={(event) => setDistance(event.target.value)}
-                    style={styles.select}
-                  >
-                    <option value="10">10 miles</option>
-                    <option value="25">25 miles</option>
-                    <option value="50">50 miles</option>
-                    <option value="100">100 miles</option>
-                    <option value="250">250 miles</option>
-                    <option value="worldwide">Worldwide</option>
-                  </select>
-                </div>
-              </div>
-
+        
+                {currentUser && (
+          <section style={styles.section}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: discoveryFiltersOpen ? 16 : 0,
+              }}
+            >
               <button
-                type="submit"
-                style={{ ...styles.primaryButton, marginTop: 19 }}
+                type="button"
+                style={styles.secondaryButton}
+                onClick={() =>
+                  setDiscoveryFiltersOpen((open) => !open)
+                }
+                aria-expanded={discoveryFiltersOpen}
+                aria-controls="heartora-discovery-filters"
               >
                 <Search size={18} />
-                Save discovery preferences
+                Filter
+                <ChevronRight
+                  size={16}
+                  style={{
+                    transform: discoveryFiltersOpen
+                      ? "rotate(90deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
               </button>
+            </div>
 
-              {locationNotice && (
-                <div
-                  role="status"
-                  style={{
-                    ...styles.notice,
-                    background: "#f8eff7",
-                    color: "#78315f",
-                    border: "1px solid #edd7e7",
-                  }}
+            {discoveryFiltersOpen && (
+              <div
+                id="heartora-discovery-filters"
+                style={styles.card}
+              >
+                <h2 style={styles.sectionTitle}>
+                  Discovery filters
+                </h2>
+
+                <p style={styles.muted}>
+                  Choose where you would like to discover members.
+                </p>
+
+                <form
+                  onSubmit={discoverMatches}
+                  style={{ marginTop: 22 }}
                 >
-                  {locationNotice}
-                </div>
-              )}
-                            {discoveryLoading && (
-                <div role="status" style={styles.notice}>
-                  Loading Heartora members...
-                </div>
-              )}
+                  <div style={styles.formGrid}>
+                    <div>
+                      <label
+                        htmlFor="discoveryCountry"
+                        style={styles.label}
+                      >
+                        Country
+                      </label>
 
-              {discoveryError && (
-                <div
-                  role="alert"
-                  style={{
-                    ...styles.notice,
-                    background: "#fff0f2",
-                    color: "#a21d45",
-                    border: "1px solid #f3c6d2",
-                  }}
-                >
-                  {discoveryError}
-                </div>
-              )}
+                      <select
+                        id="discoveryCountry"
+                        value={country}
+                        onChange={(event) =>
+                          setCountry(event.target.value)
+                        }
+                        style={styles.select}
+                      >
+                        {countries.map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-              {discoveredMembers.length > 0 && (
-                <section style={{ marginTop: 28 }}>
-                  <h3 style={styles.sectionTitle}>
-                    Members to discover
-                  </h3>
+                    <div>
+                      <label
+                        htmlFor="discoveryPostalCode"
+                        style={styles.label}
+                      >
+                        ZIP or postal code
+                      </label>
 
-                  <div style={styles.grid}>
-                    {discoveredMembers.map((member) => (
-                      <article
-  key={member.id}
-  style={{
-    ...styles.card,
-    cursor: "pointer",
-  }}
-  onClick={() => void loadMemberDetails(member.id)}
->
-                        
-                        {member.profilePhotoUrl ? (
-                          <img
-                            src={member.profilePhotoUrl}
-                            alt={`${member.displayName}'s profile`}
-                            loading="lazy"
-                            style={{
-                              width: "100%",
-                              height: 220,
-                              objectFit: "cover",
-                              borderRadius: 14,
-                              marginBottom: 14,
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: "100%",
-                              height: 140,
-                              borderRadius: 14,
-                              marginBottom: 14,
-                              background:
-                                "linear-gradient(135deg, #fce7f3, #ede9fe)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#922c68",
-                              fontSize: 38,
-                              fontWeight: 700,
-                            }}
-                            aria-label="No profile photo"
-                          >
-                            {member.displayName
-                              ?.trim()
-                              .charAt(0)
-                              .toUpperCase() || "H"}
-                          </div>
-                        )}
+                      <input
+                        id="discoveryPostalCode"
+                        value={postalCode}
+                        onChange={(event) =>
+                          setPostalCode(event.target.value)
+                        }
+                        style={styles.plainInput}
+                        maxLength={20}
+                        placeholder="Enter postal code"
+                      />
+                    </div>
 
-                        <h3 style={{ margin: "0 0 6px" }}>
-                          {member.displayName}
-                        </h3>
+                    <div>
+                      <label
+                        htmlFor="distance"
+                        style={styles.label}
+                      >
+                        Preferred distance
+                      </label>
 
-                        <p style={styles.muted}>
-                          {[member.city, member.country]
-                            .filter(Boolean)
-                            .join(", ")}
-                        </p>
-
-                        {member.bio && (
-                          <p style={styles.muted}>
-                            {member.bio}
-                          </p>
-                        )}
-
-                        {member.interests && (
-                          <p style={styles.muted}>
-                            <strong>Interests:</strong>{" "}
-                            {member.interests}
-                          </p>
-                        )}
-                      </article>
-                    ))}
+                      <select
+                        id="distance"
+                        value={distance}
+                        onChange={(event) =>
+                          setDistance(event.target.value)
+                        }
+                        style={styles.select}
+                      >
+                        <option value="10">10 miles</option>
+                        <option value="25">25 miles</option>
+                        <option value="50">50 miles</option>
+                        <option value="100">100 miles</option>
+                        <option value="250">250 miles</option>
+                        <option value="worldwide">Worldwide</option>
+                      </select>
+                    </div>
                   </div>
 
-                  {discoveryTotalPages > 1 && (
+                  <button
+                    type="submit"
+                    style={{
+                      ...styles.primaryButton,
+                      marginTop: 19,
+                    }}
+                    disabled={discoveryLoading}
+                  >
+                    <Search size={18} />
+                    {discoveryLoading
+                      ? "Finding members..."
+                      : "Apply filters"}
+                  </button>
+
+                  {locationNotice && (
                     <div
+                      role="status"
                       style={{
-                        ...styles.buttonRow,
-                        justifyContent: "center",
-                        marginTop: 20,
+                        ...styles.notice,
+                        marginTop: 14,
                       }}
                     >
-                      <button
-                        type="button"
-                        style={styles.secondaryButton}
-                        disabled={
-                          discoveryLoading || discoveryPage <= 1
-                        }
-                        onClick={() => {
-                          setDiscoveryPage((page) =>
-                            Math.max(1, page - 1),
-                          );
-                        }}
-                      >
-                        Previous
-                      </button>
-
-                      <span style={styles.muted}>
-                        Page {discoveryPage} of {discoveryTotalPages}
-                      </span>
-
-                      <button
-                        type="button"
-                        style={styles.secondaryButton}
-                        disabled={
-                          discoveryLoading ||
-                          discoveryPage >= discoveryTotalPages
-                        }
-                        onClick={() => {
-                          setDiscoveryPage((page) => page + 1);
-                        }}
-                      >
-                        Next
-                      </button>
+                      {locationNotice}
                     </div>
                   )}
-                </section>
-              )}
-            </form>
-          </div>
-        </section>
 
+                  {discoveryError && (
+                    <div
+                      role="alert"
+                      style={{
+                        ...styles.notice,
+                        background: "#fff0f2",
+                        color: "#a21d45",
+                        border: "1px solid #f3c6d2",
+                        marginTop: 14,
+                      }}
+                    >
+                      {discoveryError}
+                    </div>
+                  )}
+                </form>
+              </div>
+            )}
+          </section>
+        )}       
+                
         <section style={styles.section}>
           <div
             style={{
