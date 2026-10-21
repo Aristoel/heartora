@@ -678,6 +678,418 @@ const [messagingNotice, setMessagingNotice] =
     setLocationNotice("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+    // HEARTORA: LOAD A PUBLIC MEMBER PROFILE
+  async function loadMemberDetails(memberId: string) {
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    setMemberProfileLoading(true);
+    setMemberProfileError("");
+    setSelectedMember(null);
+
+    try {
+      const result = await authRequest(
+        `/api/members/${encodeURIComponent(memberId)}`,
+        "GET",
+      );
+
+      const raw = (
+        result as AuthResponse & {
+          member?: Record<string, unknown>;
+          profile?: Record<string, unknown>;
+        }
+      );
+
+      const data = raw.member ?? raw.profile;
+
+      if (!data) {
+        throw new Error("The member profile could not be found.");
+      }
+
+      const rawPhotos = Array.isArray(data.photos)
+        ? data.photos as Record<string, unknown>[]
+        : [];
+
+      const profile: MemberProfile = {
+        id: String(data.id ?? memberId),
+        displayName: String(data.displayName ?? data.display_name ?? "Heartora member"),
+        age:
+          typeof data.age === "number"
+            ? data.age
+            : null,
+        country: String(data.country ?? ""),
+        city:
+          data.city == null
+            ? null
+            : String(data.city),
+        bio:
+          data.bio == null
+            ? null
+            : String(data.bio),
+        interests:
+          data.interests == null
+            ? null
+            : String(data.interests),
+        profilePhotoUrl:
+          data.profilePhotoUrl == null && data.profile_photo_url == null
+            ? null
+            : String(data.profilePhotoUrl ?? data.profile_photo_url),
+        photos: rawPhotos.map((photo) => ({
+          id: String(photo.id ?? ""),
+          url: String(
+            photo.url ??
+            photo.photoUrl ??
+            photo.profilePhotoUrl ??
+            photo.profile_photo_url ??
+            "",
+          ),
+          isPrimary:
+            photo.isPrimary === true ||
+            photo.isPrimary === 1 ||
+            photo.is_primary === 1,
+        })),
+      };
+
+      setSelectedMember(profile);
+      setShowReportForm(false);
+      setReportReason("other");
+      setReportDetails("");
+      navigate("member");
+    } catch (error) {
+      setMemberProfileError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load this member's profile.",
+      );
+    } finally {
+      setMemberProfileLoading(false);
+    }
+  }
+
+  // HEARTORA: LOAD THE PRIVATE MESSAGE INBOX
+  async function loadInbox() {
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    setInboxLoading(true);
+    setInboxError("");
+
+    try {
+      const response = await fetch("/api/messages/inbox", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Unable to load your inbox.",
+        );
+      }
+
+      const conversations = Array.isArray(result.conversations)
+        ? result.conversations
+        : Array.isArray(result.inbox)
+          ? result.inbox
+          : [];
+
+      setInbox(conversations);
+    } catch (error) {
+      setInboxError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load your inbox.",
+      );
+    } finally {
+      setInboxLoading(false);
+    }
+  }
+
+  // HEARTORA: LOAD MESSAGES IN A CONVERSATION
+  async function loadMessages(conversationId: string) {
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    setMessagesLoading(true);
+    setMessagesError("");
+
+    try {
+      const result = await authRequest(
+        `/api/messages/conversations/${encodeURIComponent(conversationId)}/messages`,
+        "GET",
+      );
+
+      const data = result as AuthResponse & {
+        messages?: PrivateMessage[];
+      };
+
+      setMessages(
+        Array.isArray(data.messages)
+          ? data.messages
+          : [],
+      );
+    } catch (error) {
+      setMessagesError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load messages.",
+      );
+    } finally {
+      setMessagesLoading(false);
+    }
+  }
+
+  // HEARTORA: OPEN AN EXISTING CONVERSATION
+  async function openConversation(conversationId: string) {
+    setActiveConversationId(conversationId);
+    setMessageDraft("");
+    setMessages([]);
+    setMessagesError("");
+    navigate("conversation");
+    await loadMessages(conversationId);
+  }
+
+  // HEARTORA: START A PRIVATE CONVERSATION
+  async function startConversation(memberId: string) {
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    if (memberId === currentUser.id) {
+      setMessagingNotice({
+        type: "info",
+        message: "You cannot start a conversation with yourself.",
+      });
+      return;
+    }
+
+    setMemberActionLoading(true);
+    setMessagingNotice(null);
+
+    try {
+      const result = await authRequest(
+        "/api/messages/conversations",
+        "POST",
+        { memberId },
+      );
+
+      const data = result as AuthResponse & {
+        conversation?: { id?: string };
+        conversationId?: string;
+      };
+
+      const conversationId =
+        data.conversation?.id ??
+        data.conversationId;
+
+      if (!conversationId) {
+        throw new Error(
+          "The conversation was created, but its ID was not returned.",
+        );
+      }
+
+      setActiveConversationId(conversationId);
+      setMessageDraft("");
+      setMessages([]);
+      navigate("conversation");
+
+      await loadMessages(conversationId);
+      await loadInbox();
+    } catch (error) {
+      setMessagingNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to start this conversation.",
+      });
+    } finally {
+      setMemberActionLoading(false);
+    }
+  }
+
+  // HEARTORA: SEND A PRIVATE MESSAGE
+  async function sendPrivateMessage(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    if (!activeConversationId) {
+      setMessagesError("Please open a conversation first.");
+      return;
+    }
+
+    const body = messageDraft.trim();
+
+    if (!body) {
+      return;
+    }
+
+    if (body.length > 2000) {
+      setMessagesError(
+        "Messages cannot exceed 2,000 characters.",
+      );
+      return;
+    }
+
+    setMessageSending(true);
+    setMessagesError("");
+
+    try {
+      await authRequest(
+        `/api/messages/conversations/${encodeURIComponent(activeConversationId)}/messages`,
+        "POST",
+        { body },
+      );
+
+      setMessageDraft("");
+
+      await loadMessages(activeConversationId);
+      await loadInbox();
+    } catch (error) {
+      setMessagesError(
+        error instanceof Error
+          ? error.message
+          : "Unable to send your message.",
+      );
+    } finally {
+      setMessageSending(false);
+    }
+  }
+
+  // HEARTORA: BLOCK A MEMBER
+  async function blockMember(memberId: string) {
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Block this member? You will no longer be able to interact with them through Heartora's supported features.",
+      )
+    ) {
+      return;
+    }
+
+    setMemberActionLoading(true);
+    setMessagingNotice(null);
+
+    try {
+      await authRequest(
+        `/api/members/${encodeURIComponent(memberId)}/block`,
+        "POST",
+      );
+
+      setMessagingNotice({
+        type: "success",
+        message: "This member has been blocked.",
+      });
+
+      setInbox((previous) =>
+        previous.filter(
+          (conversation) =>
+            conversation.member.id !== memberId,
+        ),
+      );
+
+      setSelectedMember(null);
+      navigate("discover");
+    } catch (error) {
+      setMessagingNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to block this member.",
+      });
+    } finally {
+      setMemberActionLoading(false);
+    }
+  }
+
+  // HEARTORA: REPORT A MEMBER
+  async function reportMember(memberId: string) {
+    if (!currentUser) {
+      navigate("signin");
+      return;
+    }
+
+    const allowedReasons = [
+      "harassment",
+      "fake_profile",
+      "scam",
+      "inappropriate_content",
+      "underage",
+      "other",
+    ];
+
+    if (!allowedReasons.includes(reportReason)) {
+      setMessagingNotice({
+        type: "error",
+        message: "Please select a valid report reason.",
+      });
+      return;
+    }
+
+    if (reportDetails.trim().length > 2000) {
+      setMessagingNotice({
+        type: "error",
+        message: "Report details cannot exceed 2,000 characters.",
+      });
+      return;
+    }
+
+    setMemberActionLoading(true);
+    setMessagingNotice(null);
+
+    try {
+      const result = await authRequest(
+        `/api/members/${encodeURIComponent(memberId)}/report`,
+        "POST",
+        {
+          reason: reportReason,
+          details: reportDetails.trim(),
+        },
+      );
+
+      setShowReportForm(false);
+      setReportDetails("");
+
+      setMessagingNotice({
+        type: "success",
+        message:
+          result.message ||
+          "Your report has been submitted for review.",
+      });
+    } catch (error) {
+      setMessagingNotice({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to submit your report.",
+      });
+    } finally {
+      setMemberActionLoading(false);
+    }
+        }
   // Load the signed-in member's profile and photos.
   async function loadMemberProfile() {
     if (!currentUser) {
@@ -2091,7 +2503,681 @@ try {
       </main>
     );
   }
+  // HEARTORA: MEMBER PROFILE PAGE
+  function renderMember() {
+    if (memberProfileLoading) {
+      return (
+        <main className="page-container">
+          <p>Loading member profile...</p>
+        </main>
+      );
+    }
 
+    if (memberProfileError) {
+      return (
+        <main className="page-container">
+          <button
+            type="button"
+            onClick={() => navigate("discover")}
+          >
+            <ArrowLeft size={18} /> Back to Discover
+          </button>
+
+          <p role="alert">{memberProfileError}</p>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMemberProfileError("");
+              navigate("discover");
+            }}
+          >
+            Return to Discover
+          </button>
+        </main>
+      );
+    }
+
+    if (!selectedMember) {
+      return (
+        <main className="page-container">
+          <h2>Member profile</h2>
+          <p>Select a member from Discover to view their profile.</p>
+
+          <button
+            type="button"
+            onClick={() => navigate("discover")}
+          >
+            <ArrowLeft size={18} /> Back to Discover
+          </button>
+        </main>
+      );
+    }
+
+    const member = selectedMember;
+
+    return (
+      <main className="page-container">
+        <button
+          type="button"
+          onClick={() => navigate("discover")}
+          style={{ marginBottom: 20 }}
+        >
+          <ArrowLeft size={18} /> Back to Discover
+        </button>
+
+        {messagingNotice && (
+          <div
+            role="status"
+            style={{
+              padding: 12,
+              marginBottom: 16,
+              borderRadius: 10,
+              background:
+                messagingNotice.type === "error"
+                  ? "#fff0f0"
+                  : "#f0fff5",
+              color:
+                messagingNotice.type === "error"
+                  ? "#b42318"
+                  : "#176b3a",
+            }}
+          >
+            {messagingNotice.message}
+          </div>
+        )}
+
+        <section
+          className="content-card"
+          style={{
+            maxWidth: 850,
+            margin: "0 auto",
+            padding: 24,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 24,
+              alignItems: "flex-start",
+            }}
+          >
+            <div style={{ flex: "0 0 220px", maxWidth: "100%" }}>
+              {member.profilePhotoUrl ? (
+                <img
+                  src={member.profilePhotoUrl}
+                  alt={`${member.displayName}'s profile`}
+                  style={{
+                    width: "100%",
+                    maxWidth: 220,
+                    aspectRatio: "1 / 1",
+                    objectFit: "cover",
+                    borderRadius: 18,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: 220,
+                    aspectRatio: "1 / 1",
+                    borderRadius: 18,
+                    background: "#fce7ef",
+                    display: "grid",
+                    placeItems: "center",
+                    color: "#c92c60",
+                  }}
+                >
+                  <Users size={64} />
+                </div>
+              )}
+            </div>
+
+            <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+              <h1 style={{ marginTop: 0 }}>
+                {member.displayName}
+                {member.age !== null ? `, ${member.age}` : ""}
+              </h1>
+
+              {(member.city || member.country) && (
+                <p>
+                  <MapPin
+                    size={17}
+                    style={{
+                      display: "inline",
+                      verticalAlign: "middle",
+                    }}
+                  />{" "}
+                  {[member.city, member.country]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+              )}
+
+              <h3>About</h3>
+              <p style={{ whiteSpace: "pre-wrap" }}>
+                {member.bio || "This member hasn't added a bio yet."}
+              </p>
+
+              <h3>Interests</h3>
+              <p style={{ whiteSpace: "pre-wrap" }}>
+                {member.interests || "No interests added yet."}
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  marginTop: 20,
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={memberActionLoading}
+                  onClick={() => void startConversation(member.id)}
+                >
+                  <MessageCircle size={17} /> Message
+                </button>
+
+                <button
+                  type="button"
+                  disabled={memberActionLoading}
+                  onClick={() => void blockMember(member.id)}
+                >
+                  Block member
+                </button>
+
+                <button
+                  type="button"
+                  disabled={memberActionLoading}
+                  onClick={() => {
+                    setMessagingNotice(null);
+                    setShowReportForm((previous) => !previous);
+                  }}
+                >
+                  Report member
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {member.photos.length > 0 && (
+            <section style={{ marginTop: 30 }}>
+              <h2>Photos</h2>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fill, minmax(120px, 1fr))",
+                  gap: 12,
+                }}
+              >
+                {member.photos.map((photo) => (
+                  <img
+                    key={photo.id}
+                    src={photo.url}
+                    alt={`${member.displayName}'s photo`}
+                    loading="lazy"
+                    style={{
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      objectFit: "cover",
+                      borderRadius: 12,
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {showReportForm && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void reportMember(member.id);
+              }}
+              style={{
+                marginTop: 28,
+                padding: 18,
+                border: "1px solid #f0c5d5",
+                borderRadius: 14,
+              }}
+            >
+              <h2>Report this member</h2>
+
+              <p>
+                Please choose the reason that best describes your concern.
+              </p>
+
+              <label
+                htmlFor="heartora-report-reason"
+                style={{ display: "block", marginBottom: 8 }}
+              >
+                Reason
+              </label>
+
+              <select
+                id="heartora-report-reason"
+                value={reportReason}
+                onChange={(event) =>
+                  setReportReason(event.target.value)
+                }
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <option value="other">Other</option>
+                <option value="harassment">Harassment</option>
+                <option value="fake_profile">Fake profile</option>
+                <option value="scam">Scam or fraud</option>
+                <option value="inappropriate_content">
+                  Inappropriate content
+                </option>
+                <option value="underage">Underage member</option>
+              </select>
+
+              <label
+                htmlFor="heartora-report-details"
+                style={{ display: "block", marginBottom: 8 }}
+              >
+                Additional details (optional)
+              </label>
+
+              <textarea
+                id="heartora-report-details"
+                value={reportDetails}
+                onChange={(event) =>
+                  setReportDetails(event.target.value)
+                }
+                maxLength={2000}
+                rows={4}
+                placeholder="Explain what happened..."
+                style={{
+                  display: "block",
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: 12,
+                  marginBottom: 12,
+                }}
+              />
+
+              <button
+                type="submit"
+                disabled={memberActionLoading}
+              >
+                {memberActionLoading
+                  ? "Submitting..."
+                  : "Submit report"}
+              </button>
+
+              <button
+                type="button"
+                disabled={memberActionLoading}
+                onClick={() => setShowReportForm(false)}
+                style={{ marginLeft: 8 }}
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+        </section>
+      </main>
+    );
+  }
+
+  // HEARTORA: PRIVATE MESSAGE INBOX PAGE
+  function renderInbox() {
+    return (
+      <main className="page-container">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <h1>Messages</h1>
+
+          <button
+            type="button"
+            onClick={() => void loadInbox()}
+            disabled={inboxLoading}
+          >
+            {inboxLoading ? "Refreshing..." : "Refresh inbox"}
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate("discover")}
+          style={{ marginBottom: 20 }}
+        >
+          <ArrowLeft size={18} /> Back to Discover
+        </button>
+
+        {messagingNotice && (
+          <p role="status">{messagingNotice.message}</p>
+        )}
+
+        {inboxError && (
+          <p role="alert" style={{ color: "#b42318" }}>
+            {inboxError}
+          </p>
+        )}
+
+        {inboxLoading && inbox.length === 0 && (
+          <p>Loading your conversations...</p>
+        )}
+
+        {!inboxLoading && !inboxError && inbox.length === 0 && (
+          <section className="content-card" style={{ padding: 24 }}>
+            <MessageCircle size={36} />
+            <h2>Your inbox is empty</h2>
+            <p>
+              When you start a conversation with another member, it will
+              appear here.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => navigate("discover")}
+            >
+              Discover members
+            </button>
+          </section>
+        )}
+
+        <div style={{ display: "grid", gap: 12 }}>
+          {inbox.map((conversation) => (
+            <button
+              key={conversation.id}
+              type="button"
+              onClick={() =>
+                void openConversation(conversation.id)
+              }
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                width: "100%",
+                padding: 16,
+                textAlign: "left",
+                border: "1px solid #f0dce5",
+                borderRadius: 14,
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              {conversation.member.profilePhotoUrl ? (
+                <img
+                  src={conversation.member.profilePhotoUrl}
+                  alt=""
+                  style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: "50%",
+                    display: "grid",
+                    placeItems: "center",
+                    background: "#fce7ef",
+                    color: "#c92c60",
+                    flexShrink: 0,
+                  }}
+                >
+                  <UserRound size={26} />
+                </div>
+              )}
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong>
+                  {conversation.member.displayName}
+                </strong>
+
+                <p
+                  style={{
+                    margin: "5px 0",
+                    overflowWrap: "anywhere",
+                    opacity: 0.8,
+                  }}
+                >
+                  {conversation.lastMessage?.body ||
+                    "Start your conversation"}
+                </p>
+
+                {conversation.member.city && (
+                  <small>
+                    {conversation.member.city}
+                    {conversation.member.country
+                      ? `, ${conversation.member.country}`
+                      : ""}
+                  </small>
+                )}
+              </div>
+
+              {conversation.unreadCount > 0 && (
+                <span
+                  aria-label={`${conversation.unreadCount} unread messages`}
+                  style={{
+                    minWidth: 24,
+                    height: 24,
+                    borderRadius: 20,
+                    display: "grid",
+                    placeItems: "center",
+                    background: "#e83e72",
+                    color: "#fff",
+                    padding: "0 6px",
+                    fontSize: 12,
+                  }}
+                >
+                  {conversation.unreadCount}
+                </span>
+              )}
+
+              <ChevronRight size={20} />
+            </button>
+          ))}
+        </div>
+      </main>
+    );
+  }
+
+  // HEARTORA: PRIVATE CONVERSATION PAGE
+  function renderConversation() {
+    const conversation = inbox.find(
+      (item) => item.id === activeConversationId,
+    );
+
+    return (
+      <main className="page-container">
+        <button
+          type="button"
+          onClick={() => {
+            navigate("inbox");
+            void loadInbox();
+          }}
+          style={{ marginBottom: 20 }}
+        >
+          <ArrowLeft size={18} /> Back to Messages
+        </button>
+
+        <section
+          className="content-card"
+          style={{
+            maxWidth: 850,
+            margin: "0 auto",
+            padding: 20,
+          }}
+        >
+          <header
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              paddingBottom: 16,
+              borderBottom: "1px solid #f0dce5",
+            }}
+          >
+            <MessageCircle size={26} />
+
+            <div>
+              <h1 style={{ margin: 0 }}>
+                {conversation?.member.displayName || "Conversation"}
+              </h1>
+
+              {conversation?.member.country && (
+                <small>{conversation.member.country}</small>
+              )}
+            </div>
+          </header>
+
+          {messagesError && (
+            <p role="alert" style={{ color: "#b42318" }}>
+              {messagesError}
+            </p>
+          )}
+
+          {messagesLoading && messages.length === 0 && (
+            <p>Loading messages...</p>
+          )}
+
+          {!messagesLoading && messages.length === 0 && !messagesError && (
+            <p style={{ padding: "24px 0" }}>
+              No messages yet. Say hello to start the conversation.
+            </p>
+          )}
+
+          <div
+            aria-live="polite"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              padding: "20px 0",
+              minHeight: 180,
+              maxHeight: 450,
+              overflowY: "auto",
+            }}
+          >
+            {messages.map((message) => {
+              const isMine = message.senderId === currentUser?.id;
+
+              return (
+                <div
+                  key={message.id}
+                  style={{
+                    alignSelf: isMine ? "flex-end" : "flex-start",
+                    maxWidth: "85%",
+                    padding: "12px 15px",
+                    borderRadius: 14,
+                    background: isMine ? "#fce7ef" : "#f4f4f5",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                    {message.body}
+                  </p>
+
+                  <small
+                    style={{
+                      display: "block",
+                      marginTop: 6,
+                      opacity: 0.7,
+                    }}
+                  >
+                    {message.createdAt
+                      ? new Date(message.createdAt).toLocaleString()
+                      : ""}
+                  </small>
+                </div>
+              );
+            })}
+          </div>
+
+          <form
+            onSubmit={sendPrivateMessage}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 10,
+              borderTop: "1px solid #f0dce5",
+              paddingTop: 16,
+            }}
+          >
+            <label
+              htmlFor="heartora-message-draft"
+              style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                padding: 0,
+                margin: -1,
+                overflow: "hidden",
+                clip: "rect(0, 0, 0, 0)",
+                whiteSpace: "nowrap",
+                border: 0,
+              }}
+            >
+              Write a message
+            </label>
+
+            <textarea
+              id="heartora-message-draft"
+              value={messageDraft}
+              onChange={(event) =>
+                setMessageDraft(event.target.value)
+              }
+              placeholder="Write a message..."
+              maxLength={2000}
+              rows={2}
+              disabled={messageSending}
+              style={{
+                flex: "1 1 220px",
+                minWidth: 0,
+                resize: "vertical",
+                padding: 12,
+                borderRadius: 10,
+                border: "1px solid #e5d5dd",
+                boxSizing: "border-box",
+              }}
+            />
+
+            <button
+              type="submit"
+              disabled={
+                messageSending ||
+                !messageDraft.trim() ||
+                !activeConversationId
+              }
+            >
+              {messageSending ? "Sending..." : "Send"}
+            </button>
+          </form>
+
+          <small>
+            Keep conversations respectful. Never share passwords,
+            financial account details, or verification codes.
+          </small>
+        </section>
+      </main>
+    );
+                    }
   function renderAbout() {
     return (
       <main style={styles.main}>
