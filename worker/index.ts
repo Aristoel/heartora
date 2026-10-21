@@ -1975,7 +1975,7 @@ async function handleConversationMessages(
       }, 403);
     }
 
-    // SEND A MESSAGE
+        // SEND A MESSAGE AND NOTIFY THE RECIPIENT
     if (request.method === "POST") {
       let body: Record<string, unknown>;
 
@@ -2008,7 +2008,11 @@ async function handleConversationMessages(
       }
 
       const messageId = randomId();
+      const notificationId = randomId();
+      const recipientId = otherParticipant.user_id;
 
+      // Save the message, update the conversation, and create
+      // the recipient's notification in one database batch.
       await env.DB.batch([
         env.DB.prepare(`
           INSERT INTO member_messages
@@ -2026,6 +2030,28 @@ async function handleConversationMessages(
           SET updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `).bind(conversationId),
+
+        env.DB.prepare(`
+          INSERT INTO member_notifications (
+            id,
+            user_id,
+            actor_id,
+            type,
+            title,
+            body,
+            related_id
+          )
+          VALUES (?, ?, ?, 'message', ?, ?, ?)
+        `).bind(
+          notificationId,
+          recipientId,
+          user.id,
+          "New message",
+          messageBody.length > 120
+            ? `${messageBody.slice(0, 117)}...`
+            : messageBody,
+          messageId,
+        ),
       ]);
 
       return json({
@@ -2039,7 +2065,7 @@ async function handleConversationMessages(
           readAt: null,
         },
       }, 201);
-    }
+          } 
 
     // READ MESSAGES IN CHRONOLOGICAL ORDER.
     // Mark incoming messages as read only after participant verification.
