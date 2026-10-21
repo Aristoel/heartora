@@ -558,6 +558,31 @@ function calculateAge(dateString: string): number {
 }
 
 export default function App() {
+    const [notifications, setNotifications] = useState<
+    {
+      id: string;
+      actorId: string | null;
+      type: string;
+      title: string;
+      body: string;
+      relatedId: string | null;
+      isRead: boolean;
+      createdAt: string;
+      readAt: string | null;
+    }[]
+  >([]);
+
+  const [unreadNotificationCount, setUnreadNotificationCount] =
+    useState(0);
+
+  const [notificationsOpen, setNotificationsOpen] =
+    useState(false);
+
+  const [notificationsLoading, setNotificationsLoading] =
+    useState(false);
+
+  const [notificationError, setNotificationError] =
+    useState("");
   const [page, setPage] = useState<Page>(() =>
   window.location.pathname === "/admin" ? "admin" : "discover"
 );
