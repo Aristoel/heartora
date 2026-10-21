@@ -2358,9 +2358,14 @@ try {
                   <div style={styles.grid}>
                     {discoveredMembers.map((member) => (
                       <article
-                        key={member.id}
-                        style={styles.card}
-                      >
+  key={member.id}
+  style={{
+    ...styles.card,
+    cursor: "pointer",
+  }}
+  onClick={() => void loadMemberDetails(member.id)}
+>
+                        
                         {member.profilePhotoUrl ? (
                           <img
                             src={member.profilePhotoUrl}
