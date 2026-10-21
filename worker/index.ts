@@ -2534,6 +2534,19 @@ if (url.pathname === "/api/messages/conversations") {
 if (url.pathname === "/api/messages/inbox") {
   return handleMessageInbox(request, env);
 }
+    // HEARTORA: MEMBER NOTIFICATIONS ROUTES
+
+if (url.pathname === "/api/notifications") {
+  return handleMemberNotifications(request, env);
+}
+
+if (url.pathname === "/api/notifications/read") {
+  return handleMarkNotificationRead(request, env);
+}
+
+if (url.pathname === "/api/notifications/read-all") {
+  return handleMarkAllNotificationsRead(request, env);
+}
     // HEARTORA: BLOCK MEMBER ROUTE
 const blockMemberMatch = url.pathname.match(
   /^\/api\/members\/([0-9a-f-]{36})\/block$/i,
