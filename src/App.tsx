@@ -592,6 +592,7 @@ export default function App() {
   const [country, setCountry] = useState("United States");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
+  const [stateRegion, setStateRegion] = useState("");
   const [distance, setDistance] = useState("50");
   const [locationNotice, setLocationNotice] = useState("");
 const [discoveredMembers, setDiscoveredMembers] = useState<
@@ -1699,6 +1700,7 @@ async function loadDiscoveredMembers() {
       !email.trim() ||
       !birthDate ||
       !country ||
+      !city.trim() ||
       !postalCode.trim()
     ) {
       setAuthNotice({
