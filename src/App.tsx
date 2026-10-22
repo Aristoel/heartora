@@ -2372,13 +2372,7 @@ try {
               </button>
             )}
           </div>
-
-          {currentUser && (
-            <p style={{ ...styles.paragraph, marginTop: 20 }}>
-              Welcome back, {currentUser.displayName}.
-            </p>
-          )}
-    </section>
+   </section>
 )}
 
         <section style={styles.section}>
