@@ -2705,35 +2705,6 @@ try {
             )}
           </section>
         )}
-                
-        <section style={styles.section}>
-          <div
-            style={{
-              ...styles.hero,
-              textAlign: "center",
-              padding: "clamp(30px,5vw,55px)",
-            }}
-          >
-            <div style={{ ...styles.iconBox, margin: "0 auto 18px" }}>
-              <MessageCircle size={23} />
-            </div>
-            <h2 style={styles.sectionTitle}>Your story is still unfolding</h2>
-            <p style={{ ...styles.sectionText, margin: "0 auto" }}>
-              Take the first step. Create your free account and prepare to
-              discover what meaningful connections could look like for you.
-            </p>
-            <div style={{ ...styles.buttonRow, justifyContent: "center" }}>
-              <button
-                type="button"
-                style={styles.primaryButton}
-                onClick={() => navigate(currentUser ? "about" : "signup")}
-              >
-                {currentUser ? "Learn about Heartora" : "Get started for free"}
-                <ChevronRight size={17} />
-              </button>
-            </div>
-          </div>
-        </section>
       </main>
     );
   }
