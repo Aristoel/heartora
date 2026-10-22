@@ -4454,25 +4454,23 @@ if (page === "admin") {
 )}
       
         <div style={styles.footerInner}>
-         
-          <div style={styles.nav}>
-            {currentUser && (
-  <button
-    type="button"
-    style={styles.navButton}
-    onClick={() => {
-      navigate("profile");
-      void loadMemberProfile();
-    }}
-  >
-    <UserRound size={15} />
-    My Profile
-  </button>
-)}
-            
-          </div>
-        </div>
-      </footer>
+  <div style={styles.nav}>
+    {currentUser && (
+      <button
+        type="button"
+        style={styles.navButton}
+        onClick={() => {
+          navigate("profile");
+          void loadMemberProfile();
+        }}
+      >
+        <UserRound size={15} />
+        My Profile
+      </button>
+    )}
+  </div>
+</div>
+</footer>
     </div>
   );
 }
