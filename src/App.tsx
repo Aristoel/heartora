@@ -2375,8 +2375,10 @@ try {
    </section>
 )}
 
-        <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>A more thoughtful way to connect</h2>
+                {!currentUser && (
+          <section style={styles.section}>
+            <h2 style={styles.sectionTitle}>A more thoughtful way to connect</h2>
+         
           <p style={styles.sectionText}>
             Heartora is being built for adults who want to discover people
             beyond their immediate circle, with privacy and respect at the
@@ -2427,12 +2429,14 @@ try {
                 Explore safety <ChevronRight size={15} />
               </button>
             </article>
-          </div>
-        </section>
-        
-                {currentUser && (
+            </div>
+          </section>
+        )}
+
+        {currentUser && (
           <section style={styles.section}>
-            <div
+ 
+         <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
