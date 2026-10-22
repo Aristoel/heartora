@@ -4225,6 +4225,18 @@ if (page === "admin") {
 
       {currentUser ? (
         <>
+                    <button
+            type="button"
+            style={styles.navButton}
+            onClick={() => {
+              setMenuOpen(false);
+              navigate("profile");
+              void loadMemberProfile();
+            }}
+          >
+            <UserRound size={15} />
+            My Profile
+          </button>
             <div style={{ position: "relative" }}>
             <button
               type="button"
@@ -4550,23 +4562,11 @@ if (page === "admin") {
   />
 )}
       <footer>
-        <div style={styles.footerInner}>
-  <div style={styles.nav}>
-    {currentUser && (
-      <button
-        type="button"
-        style={styles.navButton}
-        onClick={() => {
-          navigate("profile");
-          void loadMemberProfile();
-        }}
-      >
-        <UserRound size={15} />
-        My Profile
-      </button>
-    )}
+  <div style={styles.footerInner}>
+    <div style={styles.nav}>
+      {/* Footer navigation removed */}
+    </div>
   </div>
-</div>
 </footer>
  </div>
   );
