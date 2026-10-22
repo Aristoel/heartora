@@ -3969,79 +3969,75 @@ try {
                   ? "heartora-premium-card featured"
                   : "heartora-premium-card"
               }
-            >
-              {plan.featured && (
-                <div className="heartora-popular-badge">
-                  POPULAR CHOICE
-                </div>
-              )}
+             >
+          {plan.featured && (
+            <div className="heartora-popular-badge">
+              POPULAR CHOICE
+            </div>
+          )}
 
-              <h2>{plan.name}</h2>
+          <h2>{plan.name}</h2>
 
-              <div className="heartora-premium-price">
-                {plan.price}
-              </div>
+          <div className="heartora-premium-price">
+            {plan.price}
+          </div>
 
-              <p className="heartora-premium-period">
-                {plan.period}
-              </p>
+          <p className="heartora-premium-period">
+            {plan.period}
+          </p>
 
-              <p className="heartora-premium-description">
-                {plan.description}
-              </p>
+          <p className="heartora-premium-description">
+            {plan.description}
+          </p>
 
-              <ul className="heartora-premium-features">
-                {plan.features.map((feature) => (
-                  <li key={feature}>
-                    <span aria-hidden="true">✓</span>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
+          <ul className="heartora-premium-features">
+            {plan.features.map((feature) => (
+              <li key={feature}>
+                <span aria-hidden="true">✓</span>
+                {feature}
+              </li>
+            ))}
+          </ul>
 
-         <button
-  type="button"
-  className="heartora-premium-button"
-  onClick={() => {
-    if (!currentUser) {
-      setAuthNotice({
-        type: "info",
-        message: "Please sign in before subscribing to Heartora Premium.",
-      });
-      navigate("signin");
-      return;
-    }
-
-    setCheckoutPriceId(plan.priceId);
-  }}
->
-  Explore this plan
-  <ChevronRight size={16} />
-</button>
-                
-            </article>
-          ))}
-        </div>
-
-        <p className="heartora-premium-disclaimer">
-          Premium features and pricing are a preview. Paid subscriptions
-          are not yet available, and no payment will be taken.
-        </p>
-
-        <div style={{ textAlign: "center", marginTop: 24 }}>
           <button
             type="button"
-            onClick={() => navigate("discover")}
-            style={styles.secondaryButton}
+            className="heartora-premium-button"
+            onClick={() => {
+              if (!currentUser) {
+                navigate("signup");
+                return;
+              }
+
+              setCheckoutPriceId(plan.priceId);
+            }}
           >
-            <ArrowLeft size={16} />
-            Back to Discover
+            Choose {plan.name}
+            <ChevronRight size={16} />
           </button>
-        </div>
-      </section>
-    </main>
+        </article>
+      ))}
+    </div>
+
+    <p className="heartora-premium-disclaimer">
+      Premium features and pricing are a preview. Paid subscriptions
+      are not yet available, and no payment will be taken.
+    </p>
+
+    <div style={{ textAlign: "center", marginTop: 24 }}>
+      <button
+        type="button"
+        onClick={() => navigate("discover")}
+        style={styles.secondaryButton}
+      >
+        <ArrowLeft size={16} />
+        Back to Discover
+      </button>
+    </div>
+  </section>
+</main>
   );
-    }
+ }       
+  
 if (page === "admin") {
   return (
     <AdminDashboard
