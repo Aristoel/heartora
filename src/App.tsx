@@ -592,27 +592,6 @@ export default function App() {
   const [country, setCountry] = useState("United States");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
-  const [streetAddress, setStreetAddress] = useState("");
-const [apartment, setApartment] = useState("");
-const [addressSuggestions, setAddressSuggestions] = useState<
-  Array<{
-    label: string;
-    street: string;
-    city: string;
-    country: string;
-    postalCode: string;
-    latitude: number;
-    longitude: number;
-  }>
->([]);
-const [addressSuggestionsOpen, setAddressSuggestionsOpen] =
-  useState(false);
-const [selectedLocation, setSelectedLocation] = useState<{
-  latitude: number;
-  longitude: number;
-} | null>(null);
-  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
-const [citySuggestionsOpen, setCitySuggestionsOpen] = useState(false);
   const [distance, setDistance] = useState("50");
   const [locationNotice, setLocationNotice] = useState("");
 const [discoveredMembers, setDiscoveredMembers] = useState<
@@ -2174,58 +2153,6 @@ try {
                 </select>
               </div>
 
-              {/* HEARTORA: PRIVATE STREET ADDRESS */}
-<div style={styles.inputGroup}>
-  <label htmlFor="signupStreetAddress" style={styles.label}>
-    Street address
-  </label>
-
-  <div style={styles.inputWrap}>
-    <MapPin size={17} style={styles.inputIcon} />
-
-    <input
-      id="signupStreetAddress"
-      style={styles.input}
-      value={streetAddress}
-      onChange={(event) => {
-        setStreetAddress(event.target.value);
-        setSelectedLocation(null);
-        setAddressSuggestionsOpen(false);
-      }}
-      autoComplete="street-address"
-      maxLength={200}
-      placeholder="Enter your street address"
-      required
-    />
-  </div>
-
-  <small style={{ color: "#806878", fontSize: 12 }}>
-    Your full street address is private and won't appear on your public profile.
-  </small>
-</div>
-
-{/* HEARTORA: OPTIONAL APARTMENT */}
-<div style={styles.inputGroup}>
-  <label htmlFor="signupApartment" style={styles.label}>
-    Apartment or unit (optional)
-  </label>
-
-  <div style={styles.inputWrap}>
-    <input
-      id="signupApartment"
-      style={{
-        ...styles.input,
-        paddingLeft: 14,
-      }}
-      value={apartment}
-      onChange={(event) => setApartment(event.target.value)}
-      autoComplete="address-line2"
-      maxLength={100}
-      placeholder="Apartment, suite, or unit"
-    />
-  </div>
-</div>
-              
            <div style={styles.inputGroup}>
   <label htmlFor="signupCity" style={styles.label}>
     City or town
