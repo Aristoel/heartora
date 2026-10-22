@@ -1745,14 +1745,16 @@ async function loadDiscoveredMembers() {
 
     try {
       const result = await authRequest("/api/auth/signup", "POST", {
-        fullName: fullName.trim(),
-        displayName: displayName.trim(),
-        email: email.trim(),
-        password,
-        birthDate,
-        country,
-        postalCode: postalCode.trim(),
-      });
+  fullName: fullName.trim(),
+  displayName: displayName.trim(),
+  email: email.trim(),
+  password,
+  birthDate,
+  country,
+  city: city.trim(),
+  stateRegion: stateRegion.trim(),
+  postalCode: postalCode.trim(),
+});
 
       if (result.user) {
   setCurrentUser(result.user);
