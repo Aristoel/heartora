@@ -4180,7 +4180,58 @@ if (page === "admin") {
     >
       {menuOpen ? <X size={19} /> : <Menu size={19} />}
     </button>
+        {currentUser && (
+          <div className="heartora-notification-button">
+            <button
+              type="button"
+              style={styles.navButton}
+              onClick={() => {
+                setNotificationsOpen((previous) => !previous);
+                if (!notificationsOpen) {
+                  void loadNotifications();
+                }
+              }}
+              aria-label={`Notifications${
+                unreadNotificationCount > 0
+                  ? `, ${unreadNotificationCount} unread`
+                  : ""
+              }`}
+              title="Notifications"
+            >
+              {unreadNotificationCount > 0 ? (
+                <BellRing size={18} />
+              ) : (
+                <Bell size={18} />
+              )}
 
+              {unreadNotificationCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    minWidth: 18,
+                    height: 18,
+                    padding: "0 4px",
+                    borderRadius: 999,
+                    background: "#e83e72",
+                    color: "#ffffff",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {unreadNotificationCount > 99
+                    ? "99+"
+                    : unreadNotificationCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
     <nav
       id="heartora-main-navigation"
       aria-label="Main navigation"
@@ -4237,56 +4288,7 @@ if (page === "admin") {
             <UserRound size={15} />
             My Profile
           </button>
-            <div style={{ position: "relative" }}>
-            <button
-              type="button"
-              style={styles.navButton}
-              onClick={() => {
-                setNotificationsOpen((previous) => !previous);
-                if (!notificationsOpen) {
-                  void loadNotifications();
-                }
-              }}
-              aria-label={`Notifications${
-                unreadNotificationCount > 0
-                  ? `, ${unreadNotificationCount} unread`
-                  : ""
-              }`}
-              title="Notifications"
-            >
-              {unreadNotificationCount > 0 ? (
-                <BellRing size={18} />
-              ) : (
-                <Bell size={18} />
-              )}
-
-              {unreadNotificationCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -5,
-                    right: -5,
-                    minWidth: 18,
-                    height: 18,
-                    padding: "0 4px",
-                    borderRadius: 999,
-                    background: "#e83e72",
-                    color: "#ffffff",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  {unreadNotificationCount > 99
-                    ? "99+"
-                    : unreadNotificationCount}
-                </span>
-              )}
-            </button>
-          </div>
+            
           <span
             style={{
               padding: "8px 10px",
