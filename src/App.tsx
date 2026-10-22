@@ -4452,58 +4452,24 @@ if (page === "admin") {
     onClose={() => setCheckoutPriceId(null)}
   />
 )}
-
-      <footer style={styles.footer}>
+      
         <div style={styles.footerInner}>
-          <button
-            type="button"
-            style={styles.brand}
-            onClick={() => navigate("discover")}
-          >
-            <Heart size={22} fill="currentColor" />
-            <span>Heartora</span>
-          </button>
-
-          <p style={{ ...styles.muted, margin: 0 }}>
-            Made for meaningful connections.
-          </p>
-
+         
           <div style={styles.nav}>
-            <button
-              type="button"
-              style={styles.navButton}
-              onClick={() => navigate("about")}
-            >
-              About
-            </button>
-            <button
-              type="button"
-              style={styles.navButton}
-              onClick={() => navigate("safety")}
-            >
-              Safety
-            </button>
-                  {currentUser && (
-        <button
-          type="button"
-          style={styles.navButton}
-          onClick={() => {
-            navigate("profile");
-            void loadMemberProfile();
-          }}
-        >
-          <UserRound size={15} />
-          My Profile
-        </button>
-      )}
-            <button
-  type="button"
-  onClick={() => navigate("premium")}
-  style={styles.navButton}
->
-  <Sparkles size={15} style={{ marginRight: 5 }} />
-  Premium
-</button>
+            {currentUser && (
+  <button
+    type="button"
+    style={styles.navButton}
+    onClick={() => {
+      navigate("profile");
+      void loadMemberProfile();
+    }}
+  >
+    <UserRound size={15} />
+    My Profile
+  </button>
+)}
+            
           </div>
         </div>
       </footer>
