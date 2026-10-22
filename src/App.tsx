@@ -709,6 +709,17 @@ const [messagingNotice, setMessagingNotice] =
       setNotificationsOpen(false);
     }
   }, [currentUser]);
+
+  // HEARTORA: AUTOMATIC MEMBER DISCOVERY
+useEffect(() => {
+  if (currentUser && page === "discover") {
+    void loadDiscoveredMembers();
+  }
+
+  if (!currentUser) {
+    setDiscoveredMembers([]);
+  }
+}, [currentUser, page]);
           
     // HEARTORA: LOAD MEMBER NOTIFICATIONS
   async function loadNotifications() {
@@ -1610,6 +1621,73 @@ async function handleNotificationClick(
   }
   }
 
+  // HEARTORA: LOAD MEMBERS AUTOMATICALLY
+async function loadDiscoveredMembers() {
+  if (!currentUser) {
+    setDiscoveredMembers([]);
+    return;
+  }
+
+  setDiscoveryLoading(true);
+  setDiscoveryError("");
+  setLocationNotice("");
+
+  try {
+    const params = new URLSearchParams({
+      country: "worldwide",
+      page: "1",
+    });
+
+    const response = await fetch(
+      `/api/discovery/members?${params.toString()}`,
+      {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      },
+    );
+
+    const data = await response.json() as {
+      success?: boolean;
+      members?: typeof discoveredMembers;
+      pagination?: {
+        total?: number;
+        totalPages?: number;
+      };
+      error?: string;
+    };
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.error || "Unable to load members right now.",
+      );
+    }
+
+    setDiscoveredMembers(data.members ?? []);
+    setDiscoveryTotalPages(data.pagination?.totalPages ?? 0);
+    setDiscoveryPage(1);
+
+    const total = data.pagination?.total ?? 0;
+
+    setLocationNotice(
+      total > 0
+        ? `Found ${total} member${total === 1 ? "" : "s"} worldwide.`
+        : "No other members are available to discover yet.",
+    );
+  } catch (error) {
+    setDiscoveryError(
+      error instanceof Error
+        ? error.message
+        : "Unable to load members right now.",
+    );
+  } finally {
+    setDiscoveryLoading(false);
+  }
+      }
+  
   async function handleSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAuthNotice(null);
@@ -2600,12 +2678,31 @@ try {
           </section>
         )} 
 
-                {currentUser && discoveredMembers.length > 0 && (
+        {currentUser && (discoveredMembers.length > 0 || discoveryLoading || discoveryError || locationNotice) && (
           <section style={styles.section}>
             <h2 style={styles.sectionTitle}>
               Members to discover
             </h2>
+{discoveryLoading && (
+  <p style={styles.muted}>
+    Finding members for you...
+  </p>
+)}
 
+{!discoveryLoading && discoveryError && (
+  <p style={styles.muted}>
+    {discoveryError}
+  </p>
+)}
+
+{!discoveryLoading &&
+  !discoveryError &&
+  discoveredMembers.length === 0 && (
+    <p style={styles.muted}>
+      {locationNotice ||
+        "No other members are available to discover yet."}
+    </p>
+  )}
             <div style={styles.grid}>
               {discoveredMembers.map((member) => (
                 <article
