@@ -135,6 +135,7 @@ async function verifyPassword(
   password: string,
   storedHash: string,
 ): Promise<boolean> {
+  
   try {
     const parts = storedHash.split("$");
 
