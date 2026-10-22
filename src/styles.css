@@ -1739,3 +1739,90 @@ a {
     box-shadow: none !important;
   }
     }
+/* HEARTORA: MOBILE HEADER LAYOUT */
+@media screen and (max-width: 760px) {
+  .heartora-header-inner {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    min-height: 72px !important;
+    padding: 10px 12px !important;
+    gap: 8px !important;
+    overflow: visible !important;
+  }
+
+  /* Hamburger stays on the left */
+  .heartora-menu-button {
+    display: inline-flex !important;
+    order: 1 !important;
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    position: relative !important;
+    z-index: 1002 !important;
+  }
+
+  /* Center the Heartora logo */
+  .heartora-header-inner > :first-child {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 120px) !important;
+    flex: none !important;
+    z-index: 1 !important;
+  }
+
+  .heartora-header-inner > :first-child span {
+    white-space: nowrap !important;
+  }
+
+  /* Keep notifications visible on the right */
+  .heartora-notification-button {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    order: 3 !important;
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    margin-left: auto !important;
+    position: relative !important;
+    z-index: 1002 !important;
+  }
+
+  .heartora-notification-button button {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 42px !important;
+    height: 42px !important;
+    padding: 0 !important;
+  }
+
+  /* Keep the dropdown below the header */
+  .heartora-navigation {
+    order: 4 !important;
+  }
+
+  /* Hide Join free in the header on mobile to avoid crowding.
+     The signup option can remain available elsewhere on the page. */
+  .heartora-join-button {
+    display: none !important;
+  }
+}
+
+/* Preserve the existing desktop header layout */
+@media screen and (min-width: 761px) {
+  .heartora-notification-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+    }
