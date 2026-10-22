@@ -4448,7 +4448,7 @@ if (page === "admin") {
     onClose={() => setCheckoutPriceId(null)}
   />
 )}
-      
+      <footer>
         <div style={styles.footerInner}>
   <div style={styles.nav}>
     {currentUser && (
@@ -4467,6 +4467,6 @@ if (page === "admin") {
   </div>
 </div>
 </footer>
-    </div>
+ </div>
   );
 }
