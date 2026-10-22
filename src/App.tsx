@@ -2332,7 +2332,8 @@ try {
   function renderDiscover() {
     return (
       <main style={styles.main}>
-        <section style={styles.hero}>
+        {!currentUser && (
+  <section style={styles.hero}>
           <div style={styles.badge}>
             <Sparkles size={15} />
             CONNECTIONS THAT MATTER
@@ -2377,7 +2378,8 @@ try {
               Welcome back, {currentUser.displayName}.
             </p>
           )}
-        </section>
+    </section>
+)}
 
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>A more thoughtful way to connect</h2>
