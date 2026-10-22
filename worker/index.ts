@@ -416,7 +416,14 @@ async function handleSignup(
   const postalCode = typeof body.postalCode === "string"
     ? body.postalCode.trim()
     : "";
+  const city = typeof body.city === "string"
+  ? body.city.trim()
+  : "";
 
+const stateRegion = typeof body.stateRegion === "string"
+  ? body.stateRegion.trim()
+  : "";
+  
   if (
     !fullName ||
     fullName.length > 100 ||
@@ -426,9 +433,12 @@ async function handleSignup(
     password.length < 8 ||
     new TextEncoder().encode(password).length > 1024 ||
     !country ||
-    country.length > 100 ||
-    !postalCode ||
-    postalCode.length > 20
+country.length > 100 ||
+!city ||
+city.length > 100 ||
+stateRegion.length > 100 ||
+!postalCode ||
+postalCode.length > 20  
   ) {
     return json({
       success: false,
@@ -461,20 +471,32 @@ async function handleSignup(
     const userId = randomId();
 
     await env.DB.prepare(
-      `INSERT INTO users
-        (id, email, password_hash, display_name, date_of_birth, country, postal_code)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  `INSERT INTO users
+    (
+      id,
+      email,
+      password_hash,
+      display_name,
+      date_of_birth,
+      country,
+      postal_code,
+      city,
+      state_region
     )
-      .bind(
-        userId,
-        email,
-        passwordHash,
-        displayName,
-        birthDate,
-        country,
-        postalCode,
-      )
-      .run();
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+)
+  .bind(
+    userId,
+    email,
+    passwordHash,
+    displayName,
+    birthDate,
+    country,
+    postalCode,
+    city,
+    stateRegion,
+  )
+  .run();
 
     const session = await createSession(env, userId);
 
