@@ -591,6 +591,7 @@ export default function App() {
   const [discoveryFiltersOpen, setDiscoveryFiltersOpen] = useState(false);
   const [country, setCountry] = useState("United States");
   const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
   const [distance, setDistance] = useState("50");
   const [locationNotice, setLocationNotice] = useState("");
 const [discoveredMembers, setDiscoveredMembers] = useState<
