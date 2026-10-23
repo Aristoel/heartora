@@ -498,7 +498,21 @@ postalCode.length > 20
     stateRegion,
   )
   .run();
-
+// Automatically create a discoverable profile for the new member.
+    await env.DB.prepare(
+      `INSERT INTO member_profiles
+        (
+          user_id,
+          bio,
+          city,
+          profile_photo_url,
+          interests,
+          show_in_discovery
+        )
+       VALUES (?, '', ?, '', '', 1)`,
+    )
+      .bind(userId, city)
+      .run();
     const session = await createSession(env, userId);
 
     const response = json({
