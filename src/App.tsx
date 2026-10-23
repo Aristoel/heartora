@@ -4385,6 +4385,7 @@ if (page === "admin") {
             color: "#392638",
           }}
         >
+          
           <div
             style={{
               display: "flex",
@@ -4399,6 +4400,7 @@ if (page === "admin") {
               <h3 style={{ margin: 0, fontSize: 17 }}>
                 Notifications
               </h3>
+
               <p
                 style={{
                   margin: "4px 0 0",
@@ -4410,32 +4412,65 @@ if (page === "admin") {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => void markAllNotificationsRead()}
-              disabled={
-                unreadNotificationCount === 0 ||
-                notificationsLoading
-              }
+            <div
               style={{
-                ...styles.navButton,
-                opacity:
-                  unreadNotificationCount === 0 ||
-                  notificationsLoading
-                    ? 0.5
-                    : 1,
-                cursor:
-                  unreadNotificationCount === 0 ||
-                  notificationsLoading
-                    ? "not-allowed"
-                    : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexShrink: 0,
               }}
             >
-              <CheckCheck size={15} />
-              Mark all read
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => void markAllNotificationsRead()}
+                disabled={
+                  unreadNotificationCount === 0 ||
+                  notificationsLoading
+                }
+                aria-label="Mark all notifications as read"
+                title="Mark all read"
+                style={{
+                  ...styles.navButton,
+                  opacity:
+                    unreadNotificationCount === 0 ||
+                    notificationsLoading
+                      ? 0.5
+                      : 1,
+                  cursor:
+                    unreadNotificationCount === 0 ||
+                    notificationsLoading
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                <CheckCheck size={15} />
+                Mark all read
+              </button>
 
+              <button
+                type="button"
+                onClick={() => setNotificationsOpen(false)}
+                aria-label="Close notifications"
+                title="Close notifications"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 36,
+                  height: 36,
+                  flexShrink: 0,
+                  border: "1px solid #f2dce7",
+                  borderRadius: 10,
+                  background: "#fff5f9",
+                  color: "#7d2459",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+          
           {notificationError && (
             <p
               role="alert"
