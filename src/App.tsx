@@ -589,11 +589,11 @@ export default function App() {
   const [checkoutPriceId, setCheckoutPriceId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [discoveryFiltersOpen, setDiscoveryFiltersOpen] = useState(false);
-  const [country, setCountry] = useState("United States");
+  const [country, setCountry] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
   const [stateRegion, setStateRegion] = useState("");
-  const [distance, setDistance] = useState("50");
+  const [distance, setDistance] = useState("country");
   const [locationNotice, setLocationNotice] = useState("");
 const [discoveredMembers, setDiscoveredMembers] = useState<
   {
@@ -712,14 +712,18 @@ const [messagingNotice, setMessagingNotice] =
     }
   }, [currentUser]);
 
-  // HEARTORA: AUTOMATIC MEMBER DISCOVERY
+  // HEARTORA: AUTOMATIC COUNTRY-BASED MEMBER DISCOVERY
+useEffect(() => {
+  if (currentUser) {
+    setCountry(currentUser.country || "");
+  } else {
+    setDiscoveredMembers([]);
+  }
+}, [currentUser]);
+
 useEffect(() => {
   if (currentUser && page === "discover") {
     void loadDiscoveredMembers();
-  }
-
-  if (!currentUser) {
-    setDiscoveredMembers([]);
   }
 }, [currentUser, page]);
           
@@ -1564,11 +1568,9 @@ async function handleNotificationClick(
     return;
   }
 
-  if (!country.trim() || !postalCode.trim()) {
-    setLocationNotice(
-      "Please select your country and enter your postal or ZIP code.",
-    );
-    return;
+  if (distance !== "worldwide" && !country.trim()) {
+  setLocationNotice("Please select your country.");
+  return;
   }
 
   setDiscoveryLoading(true);
@@ -1578,10 +1580,15 @@ async function handleNotificationClick(
   setDiscoveryPage(1);
 
   try {
-    const params = new URLSearchParams({
-      country: distance === "worldwide" ? "worldwide" : country.trim(),
-      page: "1",
-    });
+    const selectedCountry =
+  distance === "worldwide"
+    ? "worldwide"
+    : country.trim() || currentUser.country;
+
+const params = new URLSearchParams({
+  country: selectedCountry,
+  page: "1",
+});
 
     const response = await fetch(
       `/api/discovery/members?${params.toString()}`,
@@ -1636,9 +1643,9 @@ async function loadDiscoveredMembers() {
 
   try {
     const params = new URLSearchParams({
-      country: "worldwide",
-      page: "1",
-    });
+  country: country.trim() || currentUser.country,
+  page: "1",
+});
 
     const response = await fetch(
       `/api/discovery/members?${params.toString()}`,
@@ -1676,7 +1683,7 @@ async function loadDiscoveredMembers() {
 
     setLocationNotice(
       total > 0
-        ? `Found ${total} member${total === 1 ? "" : "s"} worldwide.`
+        ? `Found ${total} member${total === 1 ? "" : "s"} in ${country.trim() || currentUser.country}.`
         : "No other members are available to discover yet.",
     );
   } catch (error) {
@@ -2661,20 +2668,16 @@ try {
                       </label>
 
                       <select
-                        id="distance"
-                        value={distance}
-                        onChange={(event) =>
-                          setDistance(event.target.value)
-                        }
-                        style={styles.select}
-                      >
-                        <option value="10">10 miles</option>
-                        <option value="25">25 miles</option>
-                        <option value="50">50 miles</option>
-                        <option value="100">100 miles</option>
-                        <option value="250">250 miles</option>
-                        <option value="worldwide">Worldwide</option>
-                      </select>
+  id="distance"
+  value={distance}
+  onChange={(event) =>
+    setDistance(event.target.value)
+  }
+  style={styles.select}
+>
+  <option value="country">My country</option>
+  <option value="worldwide">Worldwide</option>
+</select>
                     </div>
                   </div>
 
