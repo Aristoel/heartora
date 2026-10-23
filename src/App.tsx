@@ -2177,6 +2177,27 @@ try {
     />
   </div>
 </div>
+              {/* HEARTORA: STATE OR REGION */}
+<div style={styles.inputGroup}>
+  <label htmlFor="signupStateRegion" style={styles.label}>
+    State, province, or region (optional)
+  </label>
+
+  <div style={styles.inputWrap}>
+    <MapPin size={17} style={styles.inputIcon} />
+
+    <input
+      id="signupStateRegion"
+      style={styles.input}
+      value={stateRegion}
+      onChange={(event) => setStateRegion(event.target.value)}
+      autoComplete="address-level1"
+      maxLength={100}
+      placeholder="Enter your state, province, or region"
+    />
+  </div>
+</div>
+              
               <div style={styles.inputGroup}>
                 <label htmlFor="signupPostalCode" style={styles.label}>
                   ZIP or postal code
