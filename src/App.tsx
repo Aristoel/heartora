@@ -221,6 +221,318 @@ const countries = [
   "Other",
 ];
 
+// HEARTORA: STATE, PROVINCE, AND REGION OPTIONS
+const regionsByCountry: Record<string, string[]> = {
+  "United States": [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California",
+    "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
+    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas",
+    "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts",
+    "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana",
+    "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+    "New Mexico", "New York", "North Carolina", "North Dakota",
+    "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island",
+    "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah",
+    "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin",
+    "Wyoming", "District of Columbia",
+  ],
+  "United Kingdom": [
+    "England", "Scotland", "Wales", "Northern Ireland",
+  ],
+  Canada: [
+    "Alberta", "British Columbia", "Manitoba", "New Brunswick",
+    "Newfoundland and Labrador", "Northwest Territories", "Nova Scotia",
+    "Nunavut", "Ontario", "Prince Edward Island", "Quebec",
+    "Saskatchewan", "Yukon",
+  ],
+  Australia: [
+    "Australian Capital Territory", "New South Wales",
+    "Northern Territory", "Queensland", "South Australia",
+    "Tasmania", "Victoria", "Western Australia",
+  ],
+  India: [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
+    "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh",
+    "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
+    "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
+    "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+    "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand",
+    "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
+    "Dadra and Nagar Haveli and Daman and Diu", "Delhi",
+    "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry",
+  ],
+  Nigeria: [
+    "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa",
+    "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo",
+    "Ekiti", "Enugu", "Federal Capital Territory", "Gombe", "Imo",
+    "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara",
+    "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo",
+    "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara",
+  ],
+  "South Africa": [
+    "Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal",
+    "Limpopo", "Mpumalanga", "North West", "Northern Cape",
+    "Western Cape",
+  ],
+  Philippines: [
+    "Abra", "Agusan del Norte", "Agusan del Sur", "Aklan", "Albay",
+    "Antique", "Apayao", "Aurora", "Basilan", "Bataan", "Batanes",
+    "Batangas", "Benguet", "Biliran", "Bohol", "Bukidnon", "Bulacan",
+    "Cagayan", "Camarines Norte", "Camarines Sur", "Camiguin",
+    "Capiz", "Catanduanes", "Cavite", "Cebu", "Cotabato",
+    "Davao de Oro", "Davao del Norte", "Davao del Sur",
+    "Davao Occidental", "Davao Oriental", "Dinagat Islands",
+    "Eastern Samar", "Guimaras", "Ifugao", "Ilocos Norte",
+    "Ilocos Sur", "Iloilo", "Isabela", "Kalinga", "La Union",
+    "Laguna", "Lanao del Norte", "Lanao del Sur", "Leyte",
+    "Maguindanao del Norte", "Maguindanao del Sur", "Marinduque",
+    "Masbate", "Metro Manila", "Misamis Occidental",
+    "Misamis Oriental", "Mountain Province", "Negros Occidental",
+    "Negros Oriental", "Northern Samar", "Nueva Ecija", "Nueva Vizcaya",
+    "Occidental Mindoro", "Oriental Mindoro", "Palawan", "Pampanga",
+    "Pangasinan", "Quezon", "Quirino", "Rizal", "Romblon",
+    "Samar", "Sarangani", "Siquijor", "Sorsogon", "South Cotabato",
+    "Southern Leyte", "Sultan Kudarat", "Sulu", "Surigao del Norte",
+    "Surigao del Sur", "Tarlac", "Tawi-Tawi", "Zambales",
+    "Zamboanga del Norte", "Zamboanga del Sur", "Zamboanga Sibugay",
+  ],
+  Germany: [
+    "Baden-Württemberg", "Bavaria", "Berlin", "Brandenburg",
+    "Bremen", "Hamburg", "Hesse", "Lower Saxony",
+    "Mecklenburg-Vorpommern", "North Rhine-Westphalia",
+    "Rhineland-Palatinate", "Saarland", "Saxony",
+    "Saxony-Anhalt", "Schleswig-Holstein", "Thuringia",
+  ],
+  France: [
+    "Auvergne-Rhône-Alpes", "Bourgogne-Franche-Comté", "Brittany",
+    "Centre-Val de Loire", "Corsica", "Grand Est", "Hauts-de-France",
+    "Île-de-France", "Normandy", "Nouvelle-Aquitaine", "Occitanie",
+    "Pays de la Loire", "Provence-Alpes-Côte d'Azur",
+  ],
+  Brazil: [
+    "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará",
+    "Distrito Federal", "Espírito Santo", "Goiás", "Maranhão",
+    "Mato Grosso", "Mato Grosso do Sul", "Minas Gerais", "Pará",
+    "Paraíba", "Paraná", "Pernambuco", "Piauí", "Rio de Janeiro",
+    "Rio Grande do Norte", "Rio Grande do Sul", "Rondônia", "Roraima",
+    "Santa Catarina", "São Paulo", "Sergipe", "Tocantins",
+  ],
+  Mexico: [
+    "Aguascalientes", "Baja California", "Baja California Sur",
+    "Campeche", "Chiapas", "Chihuahua", "Ciudad de México",
+    "Coahuila", "Colima", "Durango", "Guanajuato", "Guerrero",
+    "Hidalgo", "Jalisco", "México", "Michoacán", "Morelos",
+    "Nayarit", "Nuevo León", "Oaxaca", "Puebla", "Querétaro",
+    "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora",
+    "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán",
+    "Zacatecas",
+  ],
+  Japan: [
+    "Aichi", "Akita", "Aomori", "Chiba", "Ehime", "Fukui", "Fukuoka",
+    "Fukushima", "Gifu", "Gunma", "Hiroshima", "Hokkaido", "Hyogo",
+    "Ibaraki", "Ishikawa", "Iwate", "Kagawa", "Kagoshima", "Kanagawa",
+    "Kochi", "Kumamoto", "Kyoto", "Mie", "Miyagi", "Miyazaki",
+    "Nagano", "Nagasaki", "Nara", "Niigata", "Oita", "Okayama",
+    "Okinawa", "Osaka", "Saga", "Saitama", "Shiga", "Shimane",
+    "Shizuoka", "Tochigi", "Tokushima", "Tokyo", "Tottori",
+    "Toyama", "Wakayama", "Yamagata", "Yamaguchi", "Yamanashi",
+  ],
+  "New Zealand": [
+    "Auckland", "Bay of Plenty", "Canterbury", "Gisborne",
+    "Hawke's Bay", "Manawatū-Whanganui", "Marlborough", "Nelson",
+    "Northland", "Otago", "Southland", "Taranaki", "Tasman",
+    "Waikato", "Wellington", "West Coast",
+  ],
+};
+
+// HEARTORA: INITIAL CITY OPTIONS BY COUNTRY AND REGION
+const citiesByRegion: Record<string, string[]> = {
+  "United States|Florida": [
+    "Jacksonville",
+    "Miami",
+    "Tampa",
+    "Orlando",
+    "St. Petersburg",
+    "Tallahassee",
+    "Fort Lauderdale",
+    "Cape Coral",
+    "Port St. Lucie",
+    "Hialeah",
+  ],
+  "United States|California": [
+    "Los Angeles",
+    "San Diego",
+    "San Jose",
+    "San Francisco",
+    "Fresno",
+    "Sacramento",
+    "Long Beach",
+    "Oakland",
+    "Bakersfield",
+    "Anaheim",
+  ],
+  "United States|Texas": [
+    "Houston",
+    "San Antonio",
+    "Dallas",
+    "Austin",
+    "Fort Worth",
+    "El Paso",
+    "Arlington",
+    "Corpus Christi",
+    "Plano",
+    "Lubbock",
+  ],
+  "United States|New York": [
+    "New York City",
+    "Buffalo",
+    "Rochester",
+    "Yonkers",
+    "Syracuse",
+    "Albany",
+    "New Rochelle",
+    "Mount Vernon",
+  ],
+  "Canada|Ontario": [
+    "Toronto",
+    "Ottawa",
+    "Mississauga",
+    "Brampton",
+    "Hamilton",
+    "London",
+    "Markham",
+    "Windsor",
+    "Kitchener",
+    "Vaughan",
+  ],
+  "Canada|Quebec": [
+    "Montreal",
+    "Quebec City",
+    "Laval",
+    "Gatineau",
+    "Longueuil",
+    "Sherbrooke",
+    "Saguenay",
+    "Lévis",
+  ],
+  "United Kingdom|England": [
+    "London",
+    "Birmingham",
+    "Manchester",
+    "Liverpool",
+    "Leeds",
+    "Bristol",
+    "Sheffield",
+    "Leicester",
+    "Coventry",
+    "Nottingham",
+  ],
+  "United Kingdom|Scotland": [
+    "Glasgow",
+    "Edinburgh",
+    "Aberdeen",
+    "Dundee",
+    "Perth",
+    "Inverness",
+    "Stirling",
+  ],
+  "Australia|New South Wales": [
+    "Sydney",
+    "Newcastle",
+    "Wollongong",
+    "Albury",
+    "Dubbo",
+    "Tamworth",
+    "Wagga Wagga",
+  ],
+  "Australia|Victoria": [
+    "Melbourne",
+    "Geelong",
+    "Ballarat",
+    "Bendigo",
+    "Shepparton",
+    "Warrnambool",
+  ],
+  "India|Maharashtra": [
+    "Mumbai",
+    "Pune",
+    "Nagpur",
+    "Nashik",
+    "Thane",
+    "Chhatrapati Sambhajinagar",
+    "Solapur",
+    "Kolhapur",
+  ],
+  "India|Delhi": [
+    "New Delhi",
+    "Delhi",
+  ],
+  "Nigeria|Lagos": [
+    "Lagos",
+    "Ikeja",
+    "Epe",
+    "Badagry",
+  ],
+  "South Africa|Gauteng": [
+    "Johannesburg",
+    "Pretoria",
+    "Soweto",
+    "Benoni",
+    "Centurion",
+    "Germiston",
+  ],
+  "Philippines|Metro Manila": [
+    "Manila",
+    "Quezon City",
+    "Makati",
+    "Taguig",
+    "Pasig",
+    "Pasay",
+    "Mandaluyong",
+    "Parañaque",
+  ],
+  "Germany|Bavaria": [
+    "Munich",
+    "Nuremberg",
+    "Augsburg",
+    "Regensburg",
+    "Würzburg",
+    "Ingolstadt",
+  ],
+  "France|Île-de-France": [
+    "Paris",
+    "Boulogne-Billancourt",
+    "Saint-Denis",
+    "Versailles",
+    "Nanterre",
+    "Créteil",
+  ],
+  "Brazil|São Paulo": [
+    "São Paulo",
+    "Campinas",
+    "Santos",
+    "Ribeirão Preto",
+    "Sorocaba",
+    "São José dos Campos",
+  ],
+  "Mexico|Ciudad de México": [
+    "Mexico City",
+  ],
+  "Japan|Tokyo": [
+    "Tokyo",
+    "Hachioji",
+    "Machida",
+    "Fuchu",
+    "Tachikawa",
+  ],
+  "New Zealand|Auckland": [
+    "Auckland",
+    "Manukau",
+    "Waitakere",
+    "North Shore",
+  ],
+};
+
 const styles: Record<string, CSSProperties> = {
   app: {
     minHeight: "100vh",
@@ -2174,30 +2486,38 @@ try {
   </select>
 </div>
 
- {/* HEARTORA: SIGNUP STATE OR REGION */}
+ {/* HEARTORA: SIGNUP STATE OR REGION DROPDOWN */}
 <div style={styles.inputGroup}>
   <label htmlFor="signupStateRegion" style={styles.label}>
     State, province, or region
   </label>
 
-  <div style={styles.inputWrap}>
-    <MapPin size={17} style={styles.inputIcon} />
+  <select
+    id="signupStateRegion"
+    style={styles.select}
+    value={stateRegion}
+    onChange={(event) => {
+      setStateRegion(event.target.value);
+      setCity("");
+    }}
+    required
+    disabled={!country}
+  >
+    <option value="">Select your state or region</option>
 
-    <input
-      id="signupStateRegion"
-      style={styles.input}
-      value={stateRegion}
-      onChange={(event) => setStateRegion(event.target.value)}
-      autoComplete="address-level1"
-      maxLength={100}
-      placeholder="Select your country first"
-      required
-      disabled={!country}
-    />
-  </div>
+    {(regionsByCountry[country] || []).map((region) => (
+      <option key={region} value={region}>
+        {region}
+      </option>
+    ))}
+
+    {!regionsByCountry[country] && country && (
+      <option value="Other">Other / Not listed</option>
+    )}
+  </select>
 </div>
               
-              {/* HEARTORA: SIGNUP CITY SELECTION */}
+   {/* HEARTORA: SIGNUP CITY DROPDOWN */}
 <div style={styles.inputGroup}>
   <label htmlFor="signupCity" style={styles.label}>
     City or town
@@ -2206,25 +2526,29 @@ try {
   <div style={styles.inputWrap}>
     <MapPin size={17} style={styles.inputIcon} />
 
-    <input
+    <select
       id="signupCity"
-      style={styles.input}
+      style={styles.select}
       value={city}
       onChange={(event) => setCity(event.target.value)}
       autoComplete="address-level2"
-      maxLength={100}
-      placeholder={
-        !country
-          ? "Select your country first"
-          : !stateRegion.trim()
-            ? "Enter your state or region first"
-            : "Enter your city or town"
-      }
       required
-      disabled={!country || !stateRegion.trim()}
-    />
+      disabled={!country || !stateRegion}
+    >
+      <option value="">Select your city or town</option>
+
+      {(citiesByRegion[`${country}|${stateRegion}`] || []).map(
+        (cityOption) => (
+          <option key={cityOption} value={cityOption}>
+            {cityOption}
+          </option>
+        ),
+      )}
+
+      <option value="Other">Other / Not listed</option>
+    </select>
   </div>
-</div>
+</div>           
               
               <div style={styles.inputGroup}>
                 <label htmlFor="signupPostalCode" style={styles.label}>
