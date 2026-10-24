@@ -501,9 +501,10 @@ postalCode.length > 20
       country,
       postal_code,
       city,
-      state_region
+      state_region,
+      gender
     )
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 )
   .bind(
     userId,
@@ -515,8 +516,10 @@ postalCode.length > 20
     postalCode,
     city,
     stateRegion,
+    gender,
   )
   .run();
+    
 // Automatically create a discoverable profile for the new member.
 await env.DB.prepare(
   `INSERT INTO member_profiles
@@ -540,13 +543,14 @@ await env.DB.prepare(
   success: true,
   message: "Your Heartora account has been created.",
   user: {
-    id: userId,
-    email,
-    displayName,
-    country,
-    stateRegion,
-    city,
-  },
+  id: userId,
+  email,
+  displayName,
+  country,
+  stateRegion,
+  city,
+  gender,
+},
 }, 201);
 
     response.headers.set(
