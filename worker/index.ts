@@ -437,6 +437,7 @@ const stateRegion = typeof body.stateRegion === "string"
 country.length > 100 ||
 !city ||
 city.length > 100 ||
+!stateRegion ||
 stateRegion.length > 100 ||
 !postalCode ||
 postalCode.length > 20  
