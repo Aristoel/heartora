@@ -518,15 +518,17 @@ await env.DB.prepare(
     const session = await createSession(env, userId);
 
     const response = json({
-      success: true,
-      message: "Your Heartora account has been created.",
-      user: {
-        id: userId,
-        email,
-        displayName,
-        country,
-      },
-    }, 201);
+  success: true,
+  message: "Your Heartora account has been created.",
+  user: {
+    id: userId,
+    email,
+    displayName,
+    country,
+    stateRegion,
+    city,
+  },
+}, 201);
 
     response.headers.set(
       "Set-Cookie",
