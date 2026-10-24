@@ -2145,26 +2145,58 @@ try {
                 </p>
               </div>
 
-              <div style={styles.inputGroup}>
-                <label htmlFor="signupCountry" style={styles.label}>
-                  Country
-                </label>
-                <select
-                  id="signupCountry"
-                  style={styles.select}
-                  value={country}
-                  onChange={(event) => setCountry(event.target.value)}
-                  required
-                >
-                  {countries.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* HEARTORA: SIGNUP COUNTRY SELECTION */}
+<div style={styles.inputGroup}>
+  <label htmlFor="signupCountry" style={styles.label}>
+    Country
+  </label>
 
-           <div style={styles.inputGroup}>
+  <select
+    id="signupCountry"
+    style={styles.select}
+    value={country}
+    onChange={(event) => {
+      setCountry(event.target.value);
+      setStateRegion("");
+      setCity("");
+    }}
+    required
+  >
+    <option value="">Select your country</option>
+
+    {countries.map((item) => (
+      <option key={item} value={item}>
+        {item}
+      </option>
+    ))}
+  </select>
+</div>
+
+ {/* HEARTORA: SIGNUP STATE OR REGION */}
+<div style={styles.inputGroup}>
+  <label htmlFor="signupStateRegion" style={styles.label}>
+    State, province, or region
+  </label>
+
+  <div style={styles.inputWrap}>
+    <MapPin size={17} style={styles.inputIcon} />
+
+    <input
+      id="signupStateRegion"
+      style={styles.input}
+      value={stateRegion}
+      onChange={(event) => setStateRegion(event.target.value)}
+      autoComplete="address-level1"
+      maxLength={100}
+      placeholder="Select your country first"
+      required
+      disabled={!country}
+    />
+  </div>
+</div>
+              
+              {/* HEARTORA: SIGNUP CITY SELECTION */}
+<div style={styles.inputGroup}>
   <label htmlFor="signupCity" style={styles.label}>
     City or town
   </label>
@@ -2179,28 +2211,15 @@ try {
       onChange={(event) => setCity(event.target.value)}
       autoComplete="address-level2"
       maxLength={100}
-      placeholder="Start typing your city or town"
+      placeholder={
+        !country
+          ? "Select your country first"
+          : !stateRegion.trim()
+            ? "Enter your state or region first"
+            : "Enter your city or town"
+      }
       required
-    />
-  </div>
-</div>
-              {/* HEARTORA: STATE OR REGION */}
-<div style={styles.inputGroup}>
-  <label htmlFor="signupStateRegion" style={styles.label}>
-    State, province, or region (optional)
-  </label>
-
-  <div style={styles.inputWrap}>
-    <MapPin size={17} style={styles.inputIcon} />
-
-    <input
-      id="signupStateRegion"
-      style={styles.input}
-      value={stateRegion}
-      onChange={(event) => setStateRegion(event.target.value)}
-      autoComplete="address-level1"
-      maxLength={100}
-      placeholder="Enter your state, province, or region"
+      disabled={!country || !stateRegion.trim()}
     />
   </div>
 </div>
