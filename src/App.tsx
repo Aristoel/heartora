@@ -907,6 +907,10 @@ export default function App() {
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
   const [customCity, setCustomCity] = useState("");
+  const [citySearch, setCitySearch] = useState("");
+const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+const [cityLoading, setCityLoading] = useState(false);
+const [citySearchError, setCitySearchError] = useState("");
   const [stateRegion, setStateRegion] = useState("");
   const [customStateRegion, setCustomStateRegion] = useState("");
   const [distance, setDistance] = useState("country");
@@ -1042,6 +1046,114 @@ useEffect(() => {
     void loadDiscoveredMembers();
   }
 }, [currentUser, page]);
+
+  // HEARTORA: LOAD CITY SUGGESTIONS FROM ONLINE API
+async function loadCitySuggestions(searchText: string) {
+  const query = searchText.trim();
+
+  if (!query || query.length < 2 || !country) {
+    setCitySuggestions([]);
+    setCitySearchError("");
+    return;
+  }
+
+  const countryCodes: Record<string, string> = {
+    "United States": "US",
+    "United Kingdom": "GB",
+    Canada: "CA",
+    Australia: "AU",
+    India: "IN",
+    Nigeria: "NG",
+    "South Africa": "ZA",
+    Philippines: "PH",
+    Germany: "DE",
+    France: "FR",
+    Brazil: "BR",
+    Mexico: "MX",
+    Japan: "JP",
+    "New Zealand": "NZ",
+  };
+
+  const countryCode = countryCodes[country];
+
+  if (!countryCode) {
+    setCitySuggestions([]);
+    setCitySearchError(
+      "Please enter your city manually.",
+    );
+    return;
+  }
+
+  setCityLoading(true);
+  setCitySearchError("");
+
+  try {
+    const url =
+      `https://api.geocoded.me/search?q=${encodeURIComponent(query)}&type=city`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error("City search failed.");
+    }
+
+    const result = await response.json() as {
+      results?: Array<{
+        name?: string;
+        country?: string;
+        countryCode?: string;
+        country_code?: string;
+        state?: string;
+        region?: string;
+      }>;
+      data?: Array<{
+        name?: string;
+        country?: string;
+        countryCode?: string;
+        country_code?: string;
+        state?: string;
+        region?: string;
+      }>;
+    };
+
+    const records = result.results || result.data || [];
+
+    const matches = records
+      .filter((item) => {
+        const itemCountry =
+          item.countryCode ||
+          item.country_code ||
+          item.country ||
+          "";
+
+        return (
+          Boolean(item.name) &&
+          itemCountry.toUpperCase() === countryCode
+        );
+      })
+      .map((item) => item.name!)
+      .filter(
+        (name, index, all) =>
+          all.indexOf(name) === index,
+      )
+      .slice(0, 20);
+
+    setCitySuggestions(matches);
+
+    if (matches.length === 0) {
+      setCitySearchError(
+        "No suggestions found. You can enter your city manually.",
+      );
+    }
+  } catch {
+    setCitySuggestions([]);
+    setCitySearchError(
+      "City suggestions are temporarily unavailable. You can enter your city manually.",
+    );
+  } finally {
+    setCityLoading(false);
+  }
+        }
           
     // HEARTORA: LOAD MEMBER NOTIFICATIONS
   async function loadNotifications() {
@@ -2017,8 +2129,7 @@ async function loadDiscoveredMembers() {
     event.preventDefault();
     setAuthNotice(null);
 
-    const selectedCity =
-  city === "Other" ? customCity.trim() : city.trim();
+    const selectedCity = city.trim();
     const selectedStateRegion =
   stateRegion === "Other"
     ? customStateRegion.trim()
@@ -2539,51 +2650,103 @@ try {
 )}
 </div>
               
-   {/* HEARTORA: SIGNUP CITY DROPDOWN */}
+  {/* HEARTORA: SEARCHABLE SIGNUP CITY FIELD */}
 <div style={styles.inputGroup}>
-  <label htmlFor="signupCity" style={styles.label}>
+  <label htmlFor="signupCitySearch" style={styles.label}>
     City or town
   </label>
 
   <div style={styles.inputWrap}>
     <MapPin size={17} style={styles.inputIcon} />
 
-    <select
-      id="signupCity"
-      style={styles.select}
-      value={city}
-      onChange={(event) => setCity(event.target.value)}
+    <input
+      id="signupCitySearch"
+      type="text"
+      style={styles.input}
+      placeholder="Type at least 2 letters..."
+      value={citySearch}
+      onChange={(event) => {
+        const value = event.target.value;
+
+        setCitySearch(value);
+        setCity(value);
+        setCitySuggestions([]);
+        setCitySearchError("");
+
+        if (value.trim().length >= 2) {
+          void loadCitySuggestions(value);
+        }
+      }}
       autoComplete="address-level2"
+      maxLength={100}
       required
-      disabled={!country || !stateRegion}
-    >
-      <option value="">Select your city or town</option>
-
-      {(citiesByRegion[`${country}|${stateRegion}`] || []).map(
-        (cityOption) => (
-          <option key={cityOption} value={cityOption}>
-            {cityOption}
-          </option>
-        ),
-      )}
-
-      <option value="Other">Other / Not listed</option>
-    </select>
+      disabled={!country}
+    />
   </div>
-</div>           
 
-              {city === "Other" && (
-  <input
-    type="text"
-    style={styles.input}
-    placeholder="Enter your city or town"
-    value={customCity}
-    onChange={(event) => setCustomCity(event.target.value)}
-    maxLength={100}
-    autoComplete="address-level2"
-    required
-  />
-)}
+  {cityLoading && (
+    <p style={{ fontSize: 13, marginTop: 6 }}>
+      Loading city suggestions...
+    </p>
+  )}
+
+  {citySuggestions.length > 0 && (
+    <div
+      style={{
+        border: "1px solid #e8dce2",
+        borderRadius: 10,
+        marginTop: 6,
+        overflow: "hidden",
+        background: "#ffffff",
+      }}
+    >
+      {citySuggestions.map((cityOption, index) => (
+        <button
+          key={`${cityOption}-${index}`}
+          type="button"
+          onClick={() => {
+            setCity(cityOption);
+            setCitySearch(cityOption);
+            setCitySuggestions([]);
+            setCitySearchError("");
+          }}
+          style={{
+            display: "block",
+            width: "100%",
+            padding: "12px",
+            border: "none",
+            borderBottom:
+              index === citySuggestions.length - 1
+                ? "none"
+                : "1px solid #f0e8ec",
+            background: "#ffffff",
+            textAlign: "left",
+            cursor: "pointer",
+            color: "#333333",
+          }}
+        >
+          {cityOption}
+        </button>
+      ))}
+    </div>
+  )}
+
+  {citySearchError && (
+    <p
+      style={{
+        fontSize: 13,
+        marginTop: 6,
+        color: "#c92c60",
+      }}
+    >
+      {citySearchError}
+    </p>
+  )}
+
+  <p style={{ fontSize: 12, marginTop: 6, color: "#777777" }}>
+    Select a suggestion or type your city name manually.
+  </p>
+</div> 
               
               <div style={styles.inputGroup}>
                 <label htmlFor="signupPostalCode" style={styles.label}>
