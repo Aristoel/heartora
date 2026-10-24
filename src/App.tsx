@@ -145,6 +145,8 @@ type AuthUser = {
   email: string;
   displayName: string;
   country: string;
+  stateRegion?: string;
+  city?: string;
 };
 
 type AuthResponse = {
