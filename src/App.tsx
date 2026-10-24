@@ -2025,6 +2025,8 @@ if (
 
 setPassword("");
 setConfirmPassword("");
+setGender("");
+setCustomGender("");
 
 setAuthNotice(null);
 setPage("discover");
