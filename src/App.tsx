@@ -746,6 +746,8 @@ const [discoveryTotalPages, setDiscoveryTotalPages] = useState(0);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [gender, setGender] = useState("");
+  const [customGender, setCustomGender] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -1951,6 +1953,7 @@ if (
   !displayName.trim() ||
   !email.trim() ||
   !birthDate ||
+  !gender ||
   !country ||
   !selectedStateRegion ||
   !selectedCity ||
@@ -2005,6 +2008,11 @@ if (
   email: email.trim(),
   password,
   birthDate,
+    gender:
+    gender === "Self-describe"
+      ? customGender.trim()
+      : gender,
+  genderOption: gender,      
   country,
   stateRegion: stateRegion.trim(),      
   city: selectedCity,
@@ -2391,6 +2399,40 @@ try {
                 </p>
               </div>
 
+              {/* HEARTORA: SIGNUP GENDER SELECTION */}
+<div style={styles.inputGroup}>
+  <label htmlFor="signupGender" style={styles.label}>
+    Gender
+  </label>
+
+  <select
+    id="signupGender"
+    style={styles.select}
+    value={gender}
+    onChange={(event) => setGender(event.target.value)}
+    required
+  >
+    <option value="">Select your gender</option>
+    <option value="Woman">Woman</option>
+    <option value="Man">Man</option>
+    <option value="Non-binary">Non-binary</option>
+    <option value="Self-describe">Prefer to self-describe</option>
+    <option value="Prefer not to say">Prefer not to say</option>
+  </select>
+
+  {gender === "Self-describe" && (
+    <input
+      type="text"
+      style={styles.input}
+      placeholder="Describe your gender"
+      value={customGender}
+      onChange={(event) => setCustomGender(event.target.value)}
+      maxLength={60}
+      required
+    />
+  )}
+</div>
+              
               {/* HEARTORA: SIGNUP COUNTRY SELECTION */}
 <div style={styles.inputGroup}>
   <label htmlFor="signupCountry" style={styles.label}>
