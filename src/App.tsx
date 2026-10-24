@@ -906,7 +906,9 @@ export default function App() {
   const [country, setCountry] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
+  const [customCity, setCustomCity] = useState("");
   const [stateRegion, setStateRegion] = useState("");
+  const [customStateRegion, setCustomStateRegion] = useState("");
   const [distance, setDistance] = useState("country");
   const [locationNotice, setLocationNotice] = useState("");
 const [discoveredMembers, setDiscoveredMembers] = useState<
@@ -2015,21 +2017,29 @@ async function loadDiscoveredMembers() {
     event.preventDefault();
     setAuthNotice(null);
 
-    if (
-      !fullName.trim() ||
-      !displayName.trim() ||
-      !email.trim() ||
-      !birthDate ||
-      !country ||
-      !city.trim() ||
-      !postalCode.trim()
-    ) {
-      setAuthNotice({
-        type: "error",
-        message: "Please complete all required fields.",
-      });
-      return;
-    }
+    const selectedCity =
+  city === "Other" ? customCity.trim() : city.trim();
+    const selectedStateRegion =
+  stateRegion === "Other"
+    ? customStateRegion.trim()
+    : stateRegion.trim();
+
+if (
+  !fullName.trim() ||
+  !displayName.trim() ||
+  !email.trim() ||
+  !birthDate ||
+  !country ||
+  !selectedStateRegion ||
+  !selectedCity ||
+  !postalCode.trim()
+) {
+  setAuthNotice({
+    type: "error",
+    message: "Please complete all required fields, including your city and region.",
+  });
+  return;
+}
 
     if (calculateAge(birthDate) < 18) {
       setAuthNotice({
@@ -2074,8 +2084,8 @@ async function loadDiscoveredMembers() {
   password,
   birthDate,
   country,
-  city: city.trim(),
-  stateRegion: stateRegion.trim(),
+  stateRegion: stateRegion.trim(),      
+  city: selectedCity,
   postalCode: postalCode.trim(),
 });
 
@@ -2511,10 +2521,22 @@ try {
       </option>
     ))}
 
-    {!regionsByCountry[country] && country && (
-      <option value="Other">Other / Not listed</option>
-    )}
+    {(!regionsByCountry[country] || country === "Other") && country && (
+  <option value="Other">Other / Not listed</option>
+)}
   </select>
+  {stateRegion === "Other" && (
+  <input
+    type="text"
+    style={styles.input}
+    placeholder="Enter your state or region"
+    value={customStateRegion}
+    onChange={(event) => setCustomStateRegion(event.target.value)}
+    maxLength={100}
+    autoComplete="address-level1"
+    required
+  />
+)}
 </div>
               
    {/* HEARTORA: SIGNUP CITY DROPDOWN */}
@@ -2549,6 +2571,19 @@ try {
     </select>
   </div>
 </div>           
+
+              {city === "Other" && (
+  <input
+    type="text"
+    style={styles.input}
+    placeholder="Enter your city or town"
+    value={customCity}
+    onChange={(event) => setCustomCity(event.target.value)}
+    maxLength={100}
+    autoComplete="address-level2"
+    required
+  />
+)}
               
               <div style={styles.inputGroup}>
                 <label htmlFor="signupPostalCode" style={styles.label}>
