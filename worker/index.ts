@@ -410,6 +410,14 @@ async function handleSignup(
     ? body.birthDate
     : "";
 
+  const genderOption = typeof body.genderOption === "string"
+  ? body.genderOption.trim()
+  : "";
+
+const gender = typeof body.gender === "string"
+  ? body.gender.trim()
+  : "";
+
   const country = typeof body.country === "string"
     ? body.country.trim()
     : "";
@@ -431,6 +439,16 @@ const stateRegion = typeof body.stateRegion === "string"
     !displayName ||
     displayName.length > 40 ||
     !validEmail(email) ||
+    ![
+  "Woman",
+  "Man",
+  "Non-binary",
+  "Self-describe",
+  "Prefer not to say",
+].includes(genderOption) ||
+!gender ||
+gender.length > 60 ||
+(genderOption !== "Self-describe" && gender !== genderOption) ||
     password.length < 8 ||
     new TextEncoder().encode(password).length > 1024 ||
     !country ||
